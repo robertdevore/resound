@@ -1,0 +1,14 @@
+# kujo:spec transcript-segment
+# One line of the canonical JSONL transcript (transcript.jsonl).
+# Source of truth lives in packages/core/src/types.ts (TranscriptSegment).
+
+spec transcript-segment {
+  version "1.0.0"
+
+  field ts         timecode required  # hh:mm:ss offset from session start
+  field end_ts     timecode required
+  field speaker    string   required
+  field user_id    string   required
+  field text       string   required
+  field confidence number   required  range[0,1]
+}

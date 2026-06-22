@@ -1,0 +1,25 @@
+{
+  "name": "@resound/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "resound": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@resound/audio": "workspace:*",
+    "@resound/core": "workspace:*",
+    "@resound/exporters": "workspace:*",
+    "@resound/kujo": "workspace:*",
+    "@resound/sinks": "workspace:*",
+    "@resound/transcribers": "workspace:*",
+    "commander": "^12.1.0"
+  }
+}

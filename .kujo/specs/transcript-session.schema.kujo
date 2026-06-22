@@ -1,0 +1,60 @@
+# kujo:spec transcript-session
+# Canonical shape of a Resound session manifest (manifest.json).
+# Source of truth lives in packages/core/src/types.ts (SessionManifest).
+
+spec transcript-session {
+  version "1.0.0"
+
+  field schema_version  string  required
+  field session_id      string  required  # e.g. 2026-06-22-discord-engineering-standup
+  field title           string  required
+  field source          enum["discord","file","mock"] required
+  field guild_id        string
+  field channel_id      string
+  field started_at      datetime required
+  field ended_at        datetime           # empty while in progress
+
+  object started_by {
+    field id       string
+    field username string
+  }
+
+  list participants of participant
+  list consent_events of consent_event  min 1   # consent is REQUIRED
+
+  object outputs {
+    field jsonl        string required
+    field markdown     string required
+    field vtt          string required
+    field srt          string required
+    field summary      string required
+    field action_items string required
+  }
+
+  object transcriber {
+    field provider string
+    field model    string
+  }
+}
+
+type participant {
+  field id        string required
+  field username  string required
+  field joined_at datetime required
+  field left_at   datetime
+}
+
+type consent_event {
+  field type enum[
+    "recording-announced",
+    "session-consent",
+    "participant-joined",
+    "participant-consent",
+    "participant-left",
+    "recording-stopped"
+  ] required
+  field user_id  string required
+  field username string required
+  field ts       datetime required
+  field note     string
+}

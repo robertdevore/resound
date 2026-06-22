@@ -1,0 +1,28 @@
+{
+  "name": "resound",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Resound: self-hosted, vendor-neutral Discord voice transcription. Conversations become portable memory.",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "clean": "pnpm -r clean",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "cli": "tsx apps/cli/src/index.ts",
+    "bot": "tsx apps/bot/src/index.ts",
+    "bot:register": "tsx apps/bot/src/register.ts",
+    "bot:start": "tsx apps/bot/src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,33 @@
+# kujo:workflow record-discord-call
+# Capture a Discord voice conversation into a consent-aware session.
+# NOTE: real voice receive is gated on DAVE/E2EE support (docs/providers.md).
+# Until the voice adapter is finalized, this workflow runs against the mock
+# recorder. The shape below does not change when the real adapter lands.
+
+workflow record-discord-call {
+  input title        string required
+  input channel_id   string required
+  input guild_id     string required
+
+  step announce {
+    do   "Announce recording + transcription in the channel"
+    emit consent_event(type="recording-announced")
+    gate "no hidden recording"  check consent-required
+  }
+
+  step join_and_capture {
+    do      "Join voice channel and capture per-speaker audio chunks"
+    adapter "mock | discord(dave)"   # discord adapter pending DAVE support
+    writes  "audio/raw, audio/chunks"
+  }
+
+  step track_participants {
+    on   participant_join  emit consent_event(type="participant-joined")
+    on   participant_join  do   "Announce transcription is active"
+  }
+
+  step stop {
+    do   "Stop capture cleanly and finalize manifest.ended_at"
+    next transcribe-session
+  }
+}

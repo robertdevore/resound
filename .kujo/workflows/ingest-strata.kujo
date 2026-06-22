@@ -1,0 +1,17 @@
+# kujo:workflow ingest-strata
+# OPTIONAL sink. Strata is never required for Resound to work.
+
+workflow ingest-strata {
+  input session_dir path required
+  optional true
+
+  step push {
+    do      "Run STRATA_INGEST_COMMAND with transcript.md"
+    default "strata notes add --file <session>/transcript.md"
+    impl    "packages/sinks StrataSink"
+  }
+
+  on_missing {
+    do "Fail gracefully; tell the user transcript.md is already portable and how to export manually"
+  }
+}

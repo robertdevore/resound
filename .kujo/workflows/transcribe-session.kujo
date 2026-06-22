@@ -1,0 +1,26 @@
+# kujo:workflow transcribe-session
+# Turn captured audio into the canonical JSONL transcript.
+
+workflow transcribe-session {
+  input session_dir path required
+
+  step select_provider {
+    do   "Resolve RESOUND_TRANSCRIBER (mock|openai|deepgram|assemblyai|local-whisper)"
+    impl "packages/transcribers getTranscriber()"
+  }
+
+  step transcribe {
+    do      "Produce TranscriptSegment[] from audio chunks"
+    writes  "transcript.jsonl"
+    gate    "valid segments"  check transcript-validity
+  }
+
+  step record_provider {
+    do "Write transcriber.provider/model into manifest.json"
+  }
+
+  # Optional: emit a verifiable run artifact if RunLedger is available.
+  runledger record { artifact "transcript.jsonl" kind "transcript" }
+
+  next export-session
+}

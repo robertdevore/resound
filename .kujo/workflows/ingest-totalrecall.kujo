@@ -1,0 +1,17 @@
+# kujo:workflow ingest-totalrecall
+# OPTIONAL / scaffolded sink. TotalRecall is not required in V1.
+
+workflow ingest-totalrecall {
+  input session_dir path required
+  optional true
+
+  step ingest {
+    do      "Hand the whole session folder to TotalRecall"
+    default "totalrecall ingest <session_dir>"
+    impl    "packages/sinks TotalRecallSink"
+  }
+
+  on_missing {
+    do "Fail gracefully; the session folder remains a portable, self-describing artifact"
+  }
+}

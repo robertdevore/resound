@@ -1,0 +1,23 @@
+# kujo:workflow export-session
+# Project the canonical JSONL into portable artifacts.
+
+workflow export-session {
+  input session_dir path required
+
+  step render {
+    do     "Render markdown, vtt, srt, summary, action-items from transcript.jsonl"
+    impl   "packages/exporters writeSessionOutputs()"
+    writes "transcript.md, transcript.vtt, transcript.srt, summary.md, action-items.md"
+  }
+
+  step verify {
+    gate "all canonical outputs present"  check export-completeness
+    gate "session validates"              check transcript-validity
+  }
+
+  runledger record { artifact "session_dir" kind "transcript-session" }
+
+  # Optional downstream fan-out — none are required.
+  next ingest-strata        optional
+  next ingest-totalrecall   optional
+}

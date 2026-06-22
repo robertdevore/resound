@@ -1,0 +1,13 @@
+# kujo:check consent-required
+# Resound forbids hidden recording. Every session must carry consent metadata.
+# Executable counterpart: packages/kujo checkConsentRequired().
+
+check consent-required {
+  target manifest
+
+  assert consent_events.length >= 1
+    else "No consent recorded — hidden recording is not allowed."
+
+  assert any(consent_events, e => e.type == "recording-announced")
+    else "Recording was never announced to participants."
+}

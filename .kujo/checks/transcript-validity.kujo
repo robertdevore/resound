@@ -1,0 +1,13 @@
+# kujo:check transcript-validity
+# The manifest must match the spec and the canonical JSONL must parse cleanly.
+# Executable counterpart: packages/kujo checkTranscriptValidity() -> core.validateSession().
+
+check transcript-validity {
+  target session_dir
+
+  assert conforms(manifest, spec "transcript-session")
+    else "manifest.json does not conform to transcript-session spec"
+
+  assert each_line(file "transcript.jsonl", spec "transcript-segment")
+    else "transcript.jsonl has malformed or non-conforming lines"
+}

@@ -1,0 +1,14 @@
+# kujo:check export-completeness
+# A finalized session must contain every canonical output.
+# Executable counterpart: packages/kujo checkExportCompleteness().
+
+check export-completeness {
+  target session_dir
+
+  assert file_exists "transcript.jsonl"   else "missing canonical JSONL"
+  assert file_exists "transcript.md"      else "missing markdown"
+  assert file_exists "transcript.vtt"     else "missing VTT"
+  assert file_exists "transcript.srt"     else "missing SRT"
+  assert file_exists "summary.md"         else "missing summary"
+  assert file_exists "action-items.md"    else "missing action items"
+}

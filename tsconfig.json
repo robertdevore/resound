@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/audio" },
+    { "path": "./packages/transcribers" },
+    { "path": "./packages/exporters" },
+    { "path": "./packages/sinks" },
+    { "path": "./packages/kujo" },
+    { "path": "./apps/cli" },
+    { "path": "./apps/bot" }
+  ]
+}

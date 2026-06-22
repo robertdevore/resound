@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "composite": true
+  },
+  "references": [
+    { "path": "../../packages/core" },
+    { "path": "../../packages/audio" },
+    { "path": "../../packages/transcribers" },
+    { "path": "../../packages/exporters" },
+    { "path": "../../packages/sinks" },
+    { "path": "../../packages/kujo" }
+  ],
+  "include": ["src/**/*.ts"]
+}
