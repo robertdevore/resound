@@ -63,6 +63,10 @@ export interface Recording {
   stop(): void;
 }
 
+export function isCleanFfmpegClose(code: number | null, signal: NodeJS.Signals | null): boolean {
+  return code === 0 || code === 255 || signal === "SIGINT" || signal === "SIGTERM";
+}
+
 /** Start an ffmpeg capture. Call stop() (or rely on durationSec) to finish. */
 export function recordAudio(opts: RecordOptions): Recording {
   const ffmpeg = opts.ffmpegPath ?? "ffmpeg";
@@ -81,10 +85,11 @@ export function recordAudio(opts: RecordOptions): Recording {
         reject(err);
       }
     });
-    child.on("close", (code) => {
-      // ffmpeg returns 255 when stopped via 'q'/SIGINT after writing a valid file.
-      if (code === 0 || code === 255) resolve(opts.outFile);
-      else reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(0, 500)}`));
+    child.on("close", (code, signal) => {
+      // ffmpeg returns 255 for a clean stdin 'q' stop. In a terminal, Ctrl+C can
+      // also reach the ffmpeg process directly as SIGINT before stdin 'q' lands.
+      if (isCleanFfmpegClose(code, signal)) resolve(opts.outFile);
+      else reject(new Error(`ffmpeg exited ${code ?? signal}: ${stderr.slice(0, 500)}`));
     });
   });
 

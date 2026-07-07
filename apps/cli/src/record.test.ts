@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFfmpegArgs } from "./record.js";
+import { buildFfmpegArgs, isCleanFfmpegClose } from "./record.js";
 
 describe("buildFfmpegArgs", () => {
   it("builds a single-device capture", () => {
@@ -26,5 +26,19 @@ describe("buildFfmpegArgs", () => {
 
   it("throws when no device is provided", () => {
     expect(() => buildFfmpegArgs({ outFile: "/tmp/a.wav" })).toThrow(/No capture device/);
+  });
+});
+
+describe("isCleanFfmpegClose", () => {
+  it("accepts normal exits and intentional terminal stops", () => {
+    expect(isCleanFfmpegClose(0, null)).toBe(true);
+    expect(isCleanFfmpegClose(255, null)).toBe(true);
+    expect(isCleanFfmpegClose(null, "SIGINT")).toBe(true);
+    expect(isCleanFfmpegClose(null, "SIGTERM")).toBe(true);
+  });
+
+  it("rejects unexpected exits", () => {
+    expect(isCleanFfmpegClose(1, null)).toBe(false);
+    expect(isCleanFfmpegClose(null, "SIGHUP")).toBe(false);
   });
 });
