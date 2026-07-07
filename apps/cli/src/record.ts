@@ -67,6 +67,10 @@ export function isCleanFfmpegClose(code: number | null, signal: NodeJS.Signals |
   return code === 0 || code === 255 || signal === "SIGINT" || signal === "SIGTERM";
 }
 
+export function isInteractiveStopInput(input: string): boolean {
+  return input.includes("\u0003") || input.includes("\n") || input.includes("\r") || input.toLowerCase().includes("q");
+}
+
 /** Start an ffmpeg capture. Call stop() (or rely on durationSec) to finish. */
 export function recordAudio(opts: RecordOptions): Recording {
   const ffmpeg = opts.ffmpegPath ?? "ffmpeg";

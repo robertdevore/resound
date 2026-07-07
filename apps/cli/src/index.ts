@@ -36,7 +36,7 @@ import {
 import { runChecks } from "@resound/kujo";
 import os from "node:os";
 import { createFileSession, createMockSession, parseParticipants } from "./session-runner.js";
-import { listAudioDevices, recordAudio } from "./record.js";
+import { isInteractiveStopInput, listAudioDevices, recordAudio } from "./record.js";
 
 const program = new Command();
 program
@@ -293,7 +293,7 @@ program
   .option("--system <device>", "avfoundation device for call audio (e.g. BlackHole index)", process.env.RESOUND_AUDIO_SYSTEM_DEVICE)
   .option("--mic <device>", "avfoundation device for your microphone", process.env.RESOUND_AUDIO_MIC_DEVICE)
   .option("--device <device>", "single capture device instead of system+mic")
-  .option("-d, --duration <seconds>", "auto-stop after N seconds (default: until Ctrl+C)", (v) => parseInt(v, 10))
+  .option("-d, --duration <seconds>", "auto-stop after N seconds (default: until Enter/q)", (v) => parseInt(v, 10))
   .option("-p, --provider <provider>", "override RESOUND_TRANSCRIBER (e.g. local-whisper)")
   .option("--participants <csv>", "comma-separated participant names")
   .option("-l, --language <lang>", "language hint, e.g. en")
@@ -323,18 +323,39 @@ program
         durationSec: opts.duration
       });
 
+      let cleanupStopControls = () => {};
       if (opts.duration && opts.duration > 0) {
         console.log(`🔴 Recording for ${opts.duration}s…`);
       } else {
-        console.log("🔴 Recording… press Ctrl+C to stop and transcribe.");
-        const onSig = () => {
+        console.log("🔴 Recording… press Enter or q to stop and transcribe.");
+        let stopping = false;
+        const stop = () => {
+          if (stopping) return;
+          stopping = true;
           console.log("\n⏹  Stopping…");
           rec.stop();
         };
-        process.once("SIGINT", onSig);
+        const onData = (chunk: Buffer | string) => {
+          if (isInteractiveStopInput(String(chunk))) stop();
+        };
+        if (process.stdin.isTTY) process.stdin.setRawMode(true);
+        process.stdin.setEncoding("utf8");
+        process.stdin.resume();
+        process.stdin.on("data", onData);
+        process.once("SIGINT", stop);
+        cleanupStopControls = () => {
+          process.stdin.off("data", onData);
+          process.off("SIGINT", stop);
+          if (process.stdin.isTTY) process.stdin.setRawMode(false);
+          process.stdin.pause();
+        };
       }
 
-      await rec.done;
+      try {
+        await rec.done;
+      } finally {
+        cleanupStopControls();
+      }
       console.log("✅ Audio captured. Transcribing…");
 
       const session = await createFileSession({

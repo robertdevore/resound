@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFfmpegArgs, isCleanFfmpegClose } from "./record.js";
+import { buildFfmpegArgs, isCleanFfmpegClose, isInteractiveStopInput } from "./record.js";
 
 describe("buildFfmpegArgs", () => {
   it("builds a single-device capture", () => {
@@ -40,5 +40,19 @@ describe("isCleanFfmpegClose", () => {
   it("rejects unexpected exits", () => {
     expect(isCleanFfmpegClose(1, null)).toBe(false);
     expect(isCleanFfmpegClose(null, "SIGHUP")).toBe(false);
+  });
+});
+
+describe("isInteractiveStopInput", () => {
+  it("accepts Enter, q, and raw Ctrl+C as stop input", () => {
+    expect(isInteractiveStopInput("\n")).toBe(true);
+    expect(isInteractiveStopInput("\r")).toBe(true);
+    expect(isInteractiveStopInput("q")).toBe(true);
+    expect(isInteractiveStopInput("Q")).toBe(true);
+    expect(isInteractiveStopInput("\u0003")).toBe(true);
+  });
+
+  it("ignores other input", () => {
+    expect(isInteractiveStopInput("hello")).toBe(false);
   });
 });
