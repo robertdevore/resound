@@ -48,6 +48,14 @@ function managerFor(guildId: string): SessionManager {
 }
 
 async function reply(i: ChatInputCommandInteraction, content: string, ephemeral = false) {
+  if (i.deferred) {
+    await i.editReply(content);
+    return;
+  }
+  if (i.replied) {
+    await i.followUp(ephemeral ? { content, flags: MessageFlags.Ephemeral } : { content });
+    return;
+  }
   await i.reply(ephemeral ? { content, flags: MessageFlags.Ephemeral } : { content });
 }
 

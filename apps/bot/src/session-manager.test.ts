@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { validateSession } from "@resound/core";
+import { loadSession, validateSession } from "@resound/core";
 import { SessionManager } from "./session-manager.js";
 
 function envFor(): NodeJS.ProcessEnv {
@@ -49,6 +49,27 @@ describe("SessionManager (mock mode)", () => {
     expect(validateSession(session.dir).valid).toBe(true);
     expect(fs.existsSync(path.join(session.dir, "transcript.md"))).toBe(true);
     expect(mgr.active).toBe(false);
+  });
+
+  it("forces mock transcription in bot mock mode", async () => {
+    const env = {
+      ...envFor(),
+      RESOUND_BOT_MODE: "mock",
+      RESOUND_TRANSCRIBER: "local-whisper",
+      RESOUND_WHISPER_COMMAND: "missing-whisper-binary"
+    } as NodeJS.ProcessEnv;
+    const mgr = new SessionManager(env);
+    await mgr.start("Discord Smoke", {
+      guildId: "g1",
+      channelId: "c1",
+      startedBy: { id: "u1", username: "robert" }
+    });
+
+    const session = await mgr.stop();
+    const saved = loadSession(session.dir);
+
+    expect(saved.manifest.transcriber.provider).toBe("mock");
+    expect(saved.segments.length).toBeGreaterThan(0);
   });
 
   it("pause/resume guards state transitions", async () => {

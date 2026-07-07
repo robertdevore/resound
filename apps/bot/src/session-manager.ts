@@ -33,15 +33,22 @@ export class SessionManager {
   private state: SessionState = "stopped";
   private recorder?: Recorder;
   private readonly mode: "mock" | "discord";
+  private readonly makeTranscriber: () => Transcriber;
 
   constructor(
     private readonly env: NodeJS.ProcessEnv = process.env,
     private readonly makeRecorder: (participants: { id: string; username: string }[]) => Recorder = (
       p
     ) => new MockRecorder({ participants: p }),
-    private readonly makeTranscriber: () => Transcriber = () => getTranscriber({ env: process.env })
+    makeTranscriber?: () => Transcriber
   ) {
     this.mode = (env.RESOUND_BOT_MODE ?? "mock") === "discord" ? "discord" : "mock";
+    this.makeTranscriber =
+      makeTranscriber ??
+      (() =>
+        this.mode === "mock"
+          ? getTranscriber({ name: "mock", env: this.env })
+          : getTranscriber({ env: this.env }));
   }
 
   get active(): boolean {
