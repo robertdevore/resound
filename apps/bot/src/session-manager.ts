@@ -32,7 +32,7 @@ export class SessionManager {
   private dir?: string;
   private state: SessionState = "stopped";
   private recorder?: Recorder;
-  private readonly mode: "mock" | "discord";
+  private readonly mode: "mock" | "discord" | "local-capture";
   private readonly makeTranscriber: () => Transcriber;
 
   constructor(
@@ -42,7 +42,13 @@ export class SessionManager {
     ) => new MockRecorder({ participants: p }),
     makeTranscriber?: () => Transcriber
   ) {
-    this.mode = (env.RESOUND_BOT_MODE ?? "mock") === "discord" ? "discord" : "mock";
+    const configuredMode = env.RESOUND_BOT_MODE ?? "mock";
+    this.mode =
+      configuredMode === "discord"
+        ? "discord"
+        : configuredMode === "local-capture"
+          ? "local-capture"
+          : "mock";
     this.makeTranscriber =
       makeTranscriber ??
       (() =>

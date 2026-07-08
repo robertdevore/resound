@@ -15,15 +15,17 @@ import {
   type ChatInputCommandInteraction
 } from "discord.js";
 import { sessionPaths } from "@resound/core";
-import { DiscordRecorder, type Recorder } from "@resound/audio";
+import { DiscordRecorder, SystemRecorder, type Recorder } from "@resound/audio";
 import { SessionManager } from "./session-manager.js";
 
 /**
  * Resound Discord bot.
  *
- * Two modes (RESOUND_BOT_MODE):
+ * Three modes (RESOUND_BOT_MODE):
  *  - "mock" (default): consent-aware sessions + full transcript artifacts using
  *    the mock recorder, WITHOUT joining voice. Always works.
+ *  - "local-capture": slash commands control this machine's system/mic capture
+ *    via ffmpeg + avfoundation. This is the reliable real-audio path today.
  *  - "discord": joins the caller's voice channel and uses the live
  *    DiscordRecorder. ⚠️ As of June 2026, Discord voice *receive* is blocked by
  *    DAVE/E2EE in @discordjs/voice, so live capture may yield no audio until
@@ -31,7 +33,9 @@ import { SessionManager } from "./session-manager.js";
  *    record the call and run `resound transcribe <file>`.
  */
 
-const DISCORD_MODE = (process.env.RESOUND_BOT_MODE ?? "mock") === "discord";
+const BOT_MODE = process.env.RESOUND_BOT_MODE ?? "mock";
+const DISCORD_MODE = BOT_MODE === "discord";
+const LOCAL_CAPTURE_MODE = BOT_MODE === "local-capture";
 
 // Live voice connections per guild, so we can leave on stop.
 const connections = new Map<string, { destroy(): void }>();
@@ -115,6 +119,14 @@ async function buildLiveRecorder(
   }
 }
 
+function buildLocalCaptureRecorder(): Recorder {
+  return new SystemRecorder({
+    systemDevice: process.env.RESOUND_AUDIO_SYSTEM_DEVICE,
+    micDevice: process.env.RESOUND_AUDIO_MIC_DEVICE,
+    device: process.env.RESOUND_AUDIO_DEVICE
+  });
+}
+
 async function handle(i: ChatInputCommandInteraction): Promise<void> {
   const guildId = i.guildId ?? "dm";
   const mgr = managerFor(guildId);
@@ -134,6 +146,11 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
           recorder = built.recorder;
           channelId = built.channelId || channelId;
           voiceWarning = built.warning;
+        } else if (LOCAL_CAPTURE_MODE) {
+          recorder = buildLocalCaptureRecorder();
+          voiceWarning =
+            "\n🎙️ Local capture mode is recording this operator machine's configured audio devices. " +
+            "Use `RESOUND_AUDIO_SYSTEM_DEVICE` / `RESOUND_AUDIO_MIC_DEVICE` or `RESOUND_AUDIO_DEVICE` to choose inputs.";
         }
 
         const { announce } = await mgr.start(title, { guildId, channelId, startedBy: user }, recorder);
@@ -207,7 +224,7 @@ function main(): void {
   });
 
   client.once(Events.ClientReady, (c) => {
-    console.log(`Resound bot ready as ${c.user.tag} (mode=${process.env.RESOUND_BOT_MODE ?? "mock"})`);
+    console.log(`Resound bot ready as ${c.user.tag} (mode=${BOT_MODE})`);
   });
 
   client.on(Events.InteractionCreate, async (interaction) => {

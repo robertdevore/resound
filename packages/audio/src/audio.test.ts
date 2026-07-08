@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { MockRecorder, pcmDurationSeconds, pcmToWav } from "./index.js";
+import {
+  MockRecorder,
+  buildSystemFfmpegArgs,
+  isCleanSystemRecorderClose,
+  pcmDurationSeconds,
+  pcmToWav
+} from "./index.js";
 
 describe("mock recorder", () => {
   it("writes chunk files and returns chunk metadata", async () => {
@@ -36,5 +42,36 @@ describe("pcm → wav", () => {
     // 48000 samples * 2 channels * 2 bytes = 1 second of stereo s16le
     const pcm = Buffer.alloc(48000 * 2 * 2);
     expect(pcmDurationSeconds(pcm, fmt)).toBeCloseTo(1, 5);
+  });
+});
+
+describe("system recorder helpers", () => {
+  it("builds a single-device avfoundation capture", () => {
+    const args = buildSystemFfmpegArgs({ outFile: "/tmp/a.wav", device: "1" });
+    expect(args.join(" ")).toContain("-f avfoundation -i :1");
+    expect(args.join(" ")).toContain("-ac 1 -ar 16000");
+    expect(args).toContain("/tmp/a.wav");
+    expect(args).not.toContain("-filter_complex");
+  });
+
+  it("mixes system and mic devices", () => {
+    const args = buildSystemFfmpegArgs({ outFile: "/tmp/a.wav", systemDevice: "1", micDevice: "2" });
+    const rendered = args.join(" ");
+    expect(rendered).toContain("-f avfoundation -i :1");
+    expect(rendered).toContain("-f avfoundation -i :2");
+    expect(rendered).toContain("[0:a][1:a]amix=inputs=2:duration=longest[a]");
+    expect(rendered).toContain("-map [a]");
+  });
+
+  it("requires at least one capture device", () => {
+    expect(() => buildSystemFfmpegArgs({ outFile: "/tmp/a.wav" })).toThrow(/No capture device/);
+  });
+
+  it("accepts intentional ffmpeg stop exits", () => {
+    expect(isCleanSystemRecorderClose(0, null)).toBe(true);
+    expect(isCleanSystemRecorderClose(255, null)).toBe(true);
+    expect(isCleanSystemRecorderClose(null, "SIGINT")).toBe(true);
+    expect(isCleanSystemRecorderClose(null, "SIGTERM")).toBe(true);
+    expect(isCleanSystemRecorderClose(1, null)).toBe(false);
   });
 });

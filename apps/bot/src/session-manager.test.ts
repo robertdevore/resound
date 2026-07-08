@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadSession, validateSession } from "@resound/core";
 import { SessionManager } from "./session-manager.js";
+import type { Recorder } from "@resound/audio";
 
 function envFor(): NodeJS.ProcessEnv {
   const out = fs.mkdtempSync(path.join(os.tmpdir(), "resound-bot-"));
@@ -70,6 +71,39 @@ describe("SessionManager (mock mode)", () => {
 
     expect(saved.manifest.transcriber.provider).toBe("mock");
     expect(saved.segments.length).toBeGreaterThan(0);
+  });
+
+  it("keeps configured transcription in local-capture mode", async () => {
+    const env = {
+      ...envFor(),
+      RESOUND_BOT_MODE: "local-capture",
+      RESOUND_TRANSCRIBER: "mock"
+    } as NodeJS.ProcessEnv;
+    const recorder: Recorder = {
+      mode: "system",
+      async start() {},
+      async stop() {
+        return [
+          {
+            userId: "local",
+            username: "Local Capture",
+            path: "/tmp/fake.wav",
+            startSeconds: 0,
+            durationSeconds: 1
+          }
+        ];
+      }
+    };
+    const mgr = new SessionManager(env, () => recorder);
+    await mgr.start("Local Capture", {
+      guildId: "g1",
+      channelId: "c1",
+      startedBy: { id: "u1", username: "robert" }
+    });
+
+    expect(mgr.status()).toContain("Mode: local-capture");
+    const session = await mgr.stop();
+    expect(session.manifest.transcriber.provider).toBe("mock");
   });
 
   it("pause/resume guards state transitions", async () => {

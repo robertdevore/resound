@@ -8,7 +8,7 @@ Resound is a small monorepo of single-purpose packages. Data flows one way:
   │ (audio)    │                  │ (transcribers)│              │            │
   └────────────┘                  └───────────────┘              └─────┬──────┘
         ▲                                                              │ writes
-        │ mock | discord(DAVE, pending)                                ▼
+        │ mock | local system | discord(DAVE, pending)                 ▼
   ┌────────────┐                                              transcripts/<date>/<session>/
   │ SessionMgr │                                                manifest.json
   │ bot / cli  │                                                transcript.jsonl  ← canonical
@@ -31,9 +31,9 @@ Resound is a small monorepo of single-purpose packages. Data flows one way:
    downstream targets implement `Sink`. None are required; `mock` is the
    default and always works offline.
 4. **Audio capture is decoupled.** `Recorder` is an interface. `MockRecorder`
-   drives the whole pipeline today. A `DiscordRecorder` will implement the same
-   interface once DAVE/E2EE voice receive is viable (see
-   [providers.md](providers.md)).
+   drives deterministic tests, `SystemRecorder` captures the operator machine's
+   local system/mic audio, and `DiscordRecorder` uses the same interface once
+   DAVE/E2EE voice receive is viable (see [providers.md](providers.md)).
 5. **Kujo is the verification layer**, not the audio layer. `.kujo/` holds
    declarative specs/workflows/checks; `@resound/kujo` is their executable
    counterpart, surfaced through `resound validate`.
@@ -54,6 +54,22 @@ bot          → core, audio, transcribers, exporters, sinks
 The bot and CLI each own a thin orchestration layer (`SessionManager` /
 `createMockSession`) that wires recorder → transcriber → exporters. Keeping it
 in the apps avoids a circular dependency between the leaf packages.
+
+## Deployment Model
+
+Resound is local-first. For real Discord voice today, the useful deployment unit
+is the **operator machine**: the person who can hear the Discord call runs the
+bot and local recorder, captures the already-decrypted audio from macOS, and
+writes portable artifacts.
+
+`RESOUND_BOT_MODE=local-capture` makes `/resound` a control surface for that
+local recorder. This is different from `RESOUND_BOT_MODE=discord`, which tries
+bot-side voice receive and remains experimental while Discord DAVE/E2EE receive
+support is unstable.
+
+A VPS can be added later as an optional control plane, but it should not be the
+default capture strategy. A headless server cannot capture a user's local
+Discord app audio unless a recorder agent on that user's machine sends it work.
 
 ## Build & test
 

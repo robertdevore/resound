@@ -1,16 +1,17 @@
 # Resound
 
-**Self-hosted, vendor-neutral Discord voice transcription.** A lightweight
-"Fathom for Discord" built on local-first, file-first, no-lock-in principles.
+**Local-first, vendor-neutral Discord voice transcription.** A lightweight
+"Fathom for Discord" built around operator-owned capture, portable files, and
+no lock-in.
 
 Resound turns conversations into **portable memory**:
 
-- **Discord voice** is one input source.
+- **Discord voice** is captured from the operator's local machine today.
 - **Markdown / JSONL / VTT / SRT** are the canonical portable outputs.
 - **[TotalRecall](https://github.com/robertdevore/totalrecall/)** and **[Strata](https://github.com/robertdevore/strata/)** are *optional* downstream sinks.
 - **[Kujo](https://github.com/kujolang/kujo/)** is the workflow / spec / verification layer.
 
-No web dashboard, database-first design or required vendor. You can use
+No web dashboard, database-first design, hosted service, or required vendor. You can use
 Resound and never touch Strata, OpenAI, or TotalRecall - the artifacts are
 useful on their own.
 
@@ -35,16 +36,41 @@ pnpm cli export <session-folder-name> --format md
 `pnpm cli ...` runs the CLI from source via `tsx`. After `pnpm build`, the
 `resound` binary is available at `apps/cli/dist/index.js`.
 
+## How Real Discord Recording Works Today
+
+Discord's DAVE/E2EE rollout makes bot-side voice receive unreliable for
+third-party bots. Resound therefore treats the Discord bot as the consent and
+control surface, while the operator's machine captures the audio it can already
+hear.
+
+Recommended real path:
+
+```bash
+pnpm cli devices
+pnpm cli record --title "Client Call" --system <blackhole-index> --mic <mic-index> --participants "Robert,Client"
+```
+
+Recommended slash-command path:
+
+```bash
+RESOUND_BOT_MODE=local-capture pnpm bot:start
+```
+
+Then use `/resound start`, `/resound stop`, and `/resound export` in your own
+Discord server. The bot process must run on the machine doing the audio capture.
+Other operators can clone this repo, create their own Discord app, configure
+their own local audio devices, and run the same workflow for their servers.
+
 ## Repository layout
 
 ```
 resound/
   apps/
-    bot/          Discord bot (slash commands, mock-mode sessions)
+    bot/          Discord bot (slash commands; mock/local-capture/experimental receive)
     cli/          `resound` CLI — works on local folders, no bot required
   packages/
     core/         canonical data model, session/manifest, validation, store
-    audio/        capture abstraction + mock recorder (real receive is gated on DAVE)
+    audio/        capture abstraction + mock, local system, and Discord recorders
     transcribers/ provider adapters: mock, openai, + scaffolds
     exporters/    jsonl/md/vtt/srt/summary/action-items renderers
     sinks/        filesystem, stdout, webhook, strata, totalrecall
@@ -68,6 +94,8 @@ resound/
 - ✅ **Local-first transcription** (`local-whisper`) + an optional, vendor-neutral
   `openai-compatible` provider (any OpenAI-compatible endpoint).
 - ✅ **`resound transcribe <file>`** — turn any recording into a full session today.
+- ✅ **Local capture bot mode** (`RESOUND_BOT_MODE=local-capture`) — slash
+  commands control this machine's system/mic capture.
 - ✅ Live `DiscordRecorder` is implemented and wired into the bot
   (`RESOUND_BOT_MODE=discord`), with optional/lazy native deps.
 - ⛔ **Live Discord voice *receive* is currently blocked upstream by DAVE/E2EE**

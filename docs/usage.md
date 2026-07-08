@@ -26,7 +26,10 @@ cp .env.example .env   # optional — Resound runs in mock mode with no config
 | `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY` | — | For scaffolded providers |
 | `DISCORD_TOKEN` / `DISCORD_CLIENT_ID` | — | Discord bot |
 | `DISCORD_GUILD_ID` | — | Register slash commands to one guild (instant) |
-| `RESOUND_BOT_MODE` | `mock` | `mock` (no voice receive) or `discord` |
+| `RESOUND_BOT_MODE` | `mock` | `mock` \| `local-capture` \| `discord` |
+| `RESOUND_AUDIO_DEVICE` | — | Single local input device for `record` / local-capture |
+| `RESOUND_AUDIO_SYSTEM_DEVICE` | — | Local system/call audio input, usually BlackHole |
+| `RESOUND_AUDIO_MIC_DEVICE` | — | Local microphone input |
 | `STRATA_INGEST_COMMAND` | `strata notes add --file` | Strata sink command |
 | `TOTALRECALL_INGEST_COMMAND` | `totalrecall ingest` | TotalRecall sink command |
 
@@ -37,7 +40,7 @@ Run from source with `pnpm cli <args>`, or `node apps/cli/dist/index.js` after a
 ```bash
 resound init                                  # create the transcripts dir
 resound devices                               # list macOS audio input devices
-resound record --title "Team Sync"            # record system+mic audio, then transcribe (Ctrl+C to stop)
+resound record --title "Team Sync"            # record system+mic audio, then transcribe (Enter/q to stop)
 resound mock "Engineering Standup"            # full mock session (record→transcribe→export)
 resound transcribe meeting.m4a --title "Q3"   # transcribe an existing recorded file
 resound sessions list                         # list local sessions
@@ -113,19 +116,47 @@ Limitations to know:
   -c copy part-%03d.m4a`) and transcribe each part, or use a provider without
   that limit.
 
-## Discord workflow
+## Discord Workflow
+
+There are three bot modes:
+
+| Mode | What it proves / does | Real audio? |
+| --- | --- | --- |
+| `mock` | Slash commands, consent, session state, exports, sample transcript | No |
+| `local-capture` | Slash commands control this machine's configured system/mic recorder | Yes, if local audio routing works |
+| `discord` | Experimental bot-side voice receive through `@discordjs/voice` | Usually no today; gated by DAVE/E2EE |
+
+For reusable real-world use, give each operator their own local setup: they
+create/invite a Discord bot, run Resound on the machine that can hear the call,
+and use `/resound` to control local capture.
 
 1. Create an application at <https://discord.com/developers/applications>, add a
    bot, copy the token and application (client) ID into `.env`.
 2. Invite the bot with the `applications.commands` and `bot` scopes and the
    *Connect* voice permission.
-3. Register commands and start the bot:
+3. Pick a mode in `.env`.
+
+   For a safe command smoke test:
+   ```bash
+   RESOUND_BOT_MODE=mock
+   ```
+
+   For real local capture:
+   ```bash
+   RESOUND_BOT_MODE=local-capture
+   RESOUND_AUDIO_SYSTEM_DEVICE=1   # BlackHole/system audio from `pnpm cli devices`
+   RESOUND_AUDIO_MIC_DEVICE=2      # your mic from `pnpm cli devices`
+   RESOUND_TRANSCRIBER=local-whisper
+   RESOUND_WHISPER_MODEL=./models/ggml-base.en.bin
+   ```
+
+4. Register commands and start the bot from the repository root:
    ```bash
    pnpm build
-   pnpm --filter @resound/bot register
-   pnpm --filter @resound/bot start
+   pnpm bot:register
+   pnpm bot:start
    ```
-4. In Discord:
+5. In Discord:
    ```
    /resound start title:"Engineering Standup"
    /resound consent
@@ -135,9 +166,26 @@ Limitations to know:
    ```
 
 `/resound start` immediately announces that recording/transcription is active
-(no hidden recording). In `RESOUND_BOT_MODE=mock` the bot produces full
-transcript artifacts without joining voice — see
-[providers.md](providers.md) for why real voice receive is gated on DAVE/E2EE.
+(no hidden recording). In `RESOUND_BOT_MODE=local-capture`, the bot process must
+run on the operator machine doing the local audio capture. In
+`RESOUND_BOT_MODE=mock`, it produces full artifacts with a sample transcript.
+See [providers.md](providers.md) for why bot-side voice receive is gated on
+DAVE/E2EE.
+
+### Local Capture Diagnostics
+
+Run these before trusting a meeting capture:
+
+```bash
+pnpm cli devices
+pnpm cli record --title "Mic Only Test" --device <mic-index> --participants "me"
+pnpm cli record --title "System Output Test" --device <blackhole-index> --participants "system"
+pnpm cli record --title "Full Mix Test" --system <blackhole-index> --mic <mic-index> --participants "me,others"
+```
+
+If the mic-only test works but system-output test is silent, fix the macOS
+BlackHole/Multi-Output routing before using Discord. Hearing audio in headphones
+does not prove BlackHole is receiving it.
 
 ## Strata workflow (optional)
 

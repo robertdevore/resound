@@ -11,7 +11,7 @@ short version is:
 
 ```bash
 nvm use 22
-pnpm cli record --title "Team Sync"      # talk… then press Ctrl+C
+pnpm cli record --title "Team Sync"      # talk… then press Enter or q
 # → writes a full session under ./transcripts with a REAL local transcript
 ```
 
@@ -54,7 +54,7 @@ pnpm cli record --title "Team Sync"      # talk… then press Ctrl+C
 
 ```bash
 pnpm cli devices                         # confirm current device indices
-pnpm cli record --title "Team Sync"      # Ctrl+C to stop & transcribe
+pnpm cli record --title "Team Sync"      # Enter/q to stop & transcribe
 pnpm cli record --title "Sync" --duration 1800   # or auto-stop after 30 min
 pnpm cli record --title "Solo" --device 2        # mic only (no system audio)
 
@@ -76,3 +76,20 @@ Microphone). Capturing BlackHole counts as audio input too.
   summary + searchable transcript this is usually fine.
 - Use a bigger model (`ggml-small.en.bin`, `ggml-medium.en.bin`) for higher
   accuracy at the cost of speed; point `RESOUND_WHISPER_MODEL` at it.
+
+## Using Slash Commands With Local Capture
+
+Once the local capture path works from the CLI, the Discord bot can control the
+same local recorder:
+
+```bash
+RESOUND_BOT_MODE=local-capture
+RESOUND_AUDIO_SYSTEM_DEVICE=1
+RESOUND_AUDIO_MIC_DEVICE=2
+pnpm bot:start
+```
+
+Then use `/resound start`, `/resound stop`, and `/resound export` in Discord.
+The bot must run on the same Mac that is capturing audio. This is intentionally
+local-first: every operator can run their own bot and recorder for their own
+Discord server without depending on a central hosted service.

@@ -27,7 +27,7 @@ export interface RecorderStartOptions {
 }
 
 export interface Recorder {
-  readonly mode: "mock" | "discord";
+  readonly mode: "mock" | "discord" | "system";
   start(options: RecorderStartOptions): Promise<void>;
   /** Returns the chunks captured between start() and stop(). */
   stop(): Promise<AudioChunk[]>;

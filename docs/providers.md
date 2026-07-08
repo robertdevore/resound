@@ -94,10 +94,11 @@ Sources: [discord.js #11419](https://github.com/discordjs/discord.js/issues/1141
 
 ### What Resound does about it
 
-1. **The reliable path today: record + `resound transcribe`.** Capture the call
-   to an audio file (system audio, OBS, QuickTime, a recording bot) and run it
+1. **The reliable path today: local capture + transcription.** Capture the call
+   from the operator machine (system audio, OBS, QuickTime, Audio Hijack, or the
+   built-in `resound record` / `RESOUND_BOT_MODE=local-capture` flow) and run it
    through `local-whisper` or an OpenAI-compatible endpoint. This works now and
-   needs no voice receive. See [usage.md](usage.md#meeting-workflow--transcribe-a-recording-works-today-no-dave).
+   needs no bot-side voice receive. See [usage.md](usage.md#meeting-workflow--transcribe-a-recording-works-today-no-dave).
 
 2. **The live path is built and gated, ready for when upstream is fixed.**
    `DiscordRecorder` (`packages/audio/src/discord-recorder.ts`) implements the
@@ -118,9 +119,27 @@ To enable live mode (once upstream receive works):
 
 ```bash
 pnpm --filter @resound/bot add @discordjs/voice prism-media @discordjs/opus libsodium-wrappers
-RESOUND_BOT_MODE=discord pnpm --filter @resound/bot start
+RESOUND_BOT_MODE=discord pnpm bot:start
 ```
 
 **Re-verify before relying on live capture:** DAVE receive support in the exact
 `@discordjs/voice` version, the Opus + crypto native deps, and per-user stream
 separation.
+
+### What `local-capture` means
+
+`RESOUND_BOT_MODE=local-capture` does not use Discord voice receive. The slash
+commands run on the same operator machine that captures local audio devices
+through ffmpeg/avfoundation. This mode is the recommended real-audio bot
+workflow until bot-side receive is reliable:
+
+```bash
+RESOUND_BOT_MODE=local-capture
+RESOUND_AUDIO_SYSTEM_DEVICE=1
+RESOUND_AUDIO_MIC_DEVICE=2
+pnpm bot:start
+```
+
+The operator still needs macOS audio routing that sends Discord/system output
+into a capture device such as BlackHole, plus a microphone device for their own
+voice.
