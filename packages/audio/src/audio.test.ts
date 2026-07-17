@@ -55,12 +55,23 @@ describe("system recorder helpers", () => {
   });
 
   it("mixes system and mic devices", () => {
-    const args = buildSystemFfmpegArgs({ outFile: "/tmp/a.wav", systemDevice: "1", micDevice: "2" });
+    const args = buildSystemFfmpegArgs({
+      outFile: "/tmp/a.wav",
+      systemOutFile: "/tmp/system.wav",
+      micOutFile: "/tmp/mic.wav",
+      systemDevice: "1",
+      micDevice: "2"
+    });
     const rendered = args.join(" ");
     expect(rendered).toContain("-f avfoundation -i :1");
     expect(rendered).toContain("-f avfoundation -i :2");
-    expect(rendered).toContain("[0:a][1:a]amix=inputs=2:duration=longest[a]");
-    expect(rendered).toContain("-map [a]");
+    expect(rendered).toContain("aresample=16000:async=1:first_pts=0");
+    expect(rendered).toContain("amix=inputs=2:duration=longest:normalize=0");
+    expect(rendered).toContain("-map [mix]");
+    expect(rendered).toContain("-map 0:a");
+    expect(rendered).toContain("/tmp/system.wav");
+    expect(rendered).toContain("-map 1:a");
+    expect(rendered).toContain("/tmp/mic.wav");
   });
 
   it("requires at least one capture device", () => {

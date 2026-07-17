@@ -109,8 +109,27 @@ describe("SessionManager (mock mode)", () => {
   it("pause/resume guards state transitions", async () => {
     const mgr = new SessionManager(envFor());
     await mgr.start("S", { guildId: "g", channelId: "c", startedBy: { id: "1", username: "a" } });
-    expect(mgr.pause()).toMatch(/paused/i);
-    expect(() => mgr.pause()).toThrow();
-    expect(mgr.resume()).toMatch(/resumed/i);
+    await expect(mgr.pause()).resolves.toMatch(/paused/i);
+    await expect(mgr.pause()).rejects.toThrow();
+    await expect(mgr.resume()).resolves.toMatch(/resumed/i);
+  });
+
+  it("pauses and resumes the underlying recorder", async () => {
+    const calls: string[] = [];
+    const recorder: Recorder = {
+      mode: "system",
+      async start() {},
+      pause() { calls.push("pause"); },
+      resume() { calls.push("resume"); },
+      async stop() {
+        return [{ userId: "local", username: "Local Capture", path: "/tmp/fake.wav", startSeconds: 0, durationSeconds: 1 }];
+      }
+    };
+    const env = { ...envFor(), RESOUND_BOT_MODE: "local-capture", RESOUND_TRANSCRIBER: "mock" } as NodeJS.ProcessEnv;
+    const mgr = new SessionManager(env, () => recorder);
+    await mgr.start("Local", { guildId: "g", channelId: "c", startedBy: { id: "1", username: "a" } }, recorder);
+    await mgr.pause();
+    await mgr.resume();
+    expect(calls).toEqual(["pause", "resume"]);
   });
 });

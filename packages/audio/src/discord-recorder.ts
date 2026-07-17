@@ -49,6 +49,7 @@ export class DiscordRecorder implements Recorder {
   private startedAt = 0;
   private active = new Set<string>();
   private counters = new Map<string, number>();
+  private paused = false;
 
   constructor(opts: DiscordRecorderOptions) {
     this.connection = opts.connection;
@@ -62,10 +63,12 @@ export class DiscordRecorder implements Recorder {
     fs.mkdirSync(paths.audioChunks, { recursive: true });
     this.chunkDir = paths.audioChunks;
     this.startedAt = Date.now();
+    this.paused = false;
 
     const { EndBehaviorType, opusDecoderStream } = await loadVoiceDeps();
 
     this.connection.receiver.speaking.on("start", (userId: string) => {
+      if (this.paused) return;
       if (this.active.has(userId)) return;
       this.active.add(userId);
 
@@ -86,6 +89,14 @@ export class DiscordRecorder implements Recorder {
       });
       decoder.on("error", () => this.active.delete(userId));
     });
+  }
+
+  pause(): void {
+    this.paused = true;
+  }
+
+  resume(): void {
+    this.paused = false;
   }
 
   private writeChunk(userId: string, pcm: Buffer, startOffset: number): void {

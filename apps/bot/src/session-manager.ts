@@ -32,6 +32,7 @@ export class SessionManager {
   private dir?: string;
   private state: SessionState = "stopped";
   private recorder?: Recorder;
+  private lastCaptureReport: string[] = [];
   private readonly mode: "mock" | "discord" | "local-capture";
   private readonly makeTranscriber: () => Transcriber;
 
@@ -95,6 +96,7 @@ export class SessionManager {
 
     this.recorder = recorderOverride ?? this.makeRecorder([ctx.startedBy]);
     await this.recorder.start({ sessionDir: this.dir });
+    this.lastCaptureReport = [];
     this.state = "recording";
 
     return {
@@ -125,14 +127,16 @@ export class SessionManager {
     return `✅ Consent recorded for ${user.username}.`;
   }
 
-  pause(): string {
+  async pause(): Promise<string> {
     if (this.state !== "recording") throw new Error("Nothing is recording.");
+    await this.recorder?.pause?.();
     this.state = "paused";
     return "⏸️ Recording paused.";
   }
 
-  resume(): string {
+  async resume(): Promise<string> {
     if (this.state !== "paused") throw new Error("Session is not paused.");
+    await this.recorder?.resume?.();
     this.state = "recording";
     return "▶️ Recording resumed.";
   }
@@ -151,7 +155,14 @@ export class SessionManager {
   /** Finalize: transcribe captured audio and write all portable outputs. */
   async stop(): Promise<TranscriptSession> {
     if (!this.manifest || !this.dir || !this.recorder) throw new Error("No active session.");
-    const chunks = await this.recorder.stop();
+    const recorder = this.recorder;
+    const chunks = await recorder.stop();
+    this.state = "stopped";
+    this.recorder = undefined;
+    this.lastCaptureReport = (await recorder.captureSummary?.()) ?? [];
+    if (this.mode !== "mock" && chunks.length === 0) {
+      throw new Error("No audio was captured. Check the configured devices and audio routing, then try again.");
+    }
     const transcriber = this.makeTranscriber();
     const segments = await transcriber.transcribe({
       sessionDir: this.dir,
@@ -171,9 +182,11 @@ export class SessionManager {
     const session: TranscriptSession = { manifest: this.manifest, segments, dir: this.dir };
     writeSessionOutputs(session);
 
-    this.state = "stopped";
-    this.recorder = undefined;
     return session;
+  }
+
+  captureReport(): string[] {
+    return [...this.lastCaptureReport];
   }
 
   currentPaths() {
