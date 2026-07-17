@@ -106,8 +106,9 @@ Sources: [discord.js #11419](https://github.com/discordjs/discord.js/issues/1141
    per-utterance WAV in `audio/chunks/` (one file per user, so diarization maps
    to real `user_id`s). It is wired into the bot under `RESOUND_BOT_MODE=discord`
    and joins the caller's voice channel. Its native deps (`@discordjs/voice`,
-   `prism-media`, `@discordjs/opus`) are **optional** and lazy-loaded, so install
-   and mock mode never require them.
+   `prism-media`, `@discordjs/opus`) are lazy-loaded and intentionally not
+   installed by default, so the supported local-capture path stays small and
+   avoids a fragile native Opus build.
 
    Because of the DAVE receive bug above, live mode **may capture no audio**
    right now — the bot says so in its `/resound start` reply and falls back
