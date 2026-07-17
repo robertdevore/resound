@@ -89,7 +89,24 @@ RESOUND_AUDIO_MIC_DEVICE=2
 pnpm bot:start
 ```
 
-Then use `/resound start`, `/resound stop`, and `/resound export` in Discord.
+Then use `/resound start` and `/resound stop` in Discord. The title is optional,
+and `/resound stop` attaches the finished Markdown transcript automatically.
 The bot must run on the same Mac that is capturing audio. This is intentionally
 local-first: every operator can run their own bot and recorder for their own
 Discord server without depending on a central hosted service.
+
+On `/resound stop`, the bot now reports separate health checks for
+**meeting/system audio** and the **local microphone**. A silent system track
+means Discord is not actually routed through BlackHole/Multi-Output; a silent
+microphone track means the mic index or macOS permission is wrong. Do not trust
+a meeting capture until both lines show `audio detected`.
+
+### Two-minute end-to-end test
+
+1. Start the bot with `pnpm bot:start` and join any Discord voice channel.
+2. Run `/resound start title:"Capture Test"` (or simply `/resound start`).
+3. Have someone else speak (or play audio through Discord), then say a distinct
+   sentence yourself.
+4. Run `/resound stop`.
+5. Confirm both capture-health lines are green and the reply reports transcript
+   segments, then confirm both statements appear in the attached transcript.

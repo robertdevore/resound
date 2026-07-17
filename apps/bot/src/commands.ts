@@ -12,7 +12,7 @@ export const resoundCommand = new SlashCommandBuilder()
       .setName("start")
       .setDescription("Start a recording/transcription session")
       .addStringOption((o) =>
-        o.setName("title").setDescription("Session title").setRequired(true)
+        o.setName("title").setDescription("Optional session title")
       )
   )
   .addSubcommand((s) => s.setName("stop").setDescription("Stop and finalize the session"))

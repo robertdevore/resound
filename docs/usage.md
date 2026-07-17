@@ -8,7 +8,7 @@ corepack enable    # provides pnpm
 pnpm install
 pnpm build
 pnpm test
-cp .env.example .env   # optional — Resound runs in mock mode with no config
+cp .env.example .env   # without .env, Resound falls back to mock mode
 ```
 
 ## Environment variables
@@ -26,7 +26,7 @@ cp .env.example .env   # optional — Resound runs in mock mode with no config
 | `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY` | — | For scaffolded providers |
 | `DISCORD_TOKEN` / `DISCORD_CLIENT_ID` | — | Discord bot |
 | `DISCORD_GUILD_ID` | — | Register slash commands to one guild (instant) |
-| `RESOUND_BOT_MODE` | `mock` | `mock` \| `local-capture` \| `discord` |
+| `RESOUND_BOT_MODE` | `local-capture` in the template | `mock` \| `local-capture` \| `discord` |
 | `RESOUND_AUDIO_DEVICE` | — | Single local input device for `record` / local-capture |
 | `RESOUND_AUDIO_SYSTEM_DEVICE` | — | Local system/call audio input, usually BlackHole |
 | `RESOUND_AUDIO_MIC_DEVICE` | — | Local microphone input |
@@ -136,7 +136,7 @@ and use `/resound` to control local capture.
    *Connect* voice permission.
 3. Pick a mode in `.env`.
 
-   For a safe command smoke test:
+   For a command-only smoke test with no real audio:
    ```bash
    RESOUND_BOT_MODE=mock
    ```
@@ -158,11 +158,11 @@ and use `/resound` to control local capture.
    ```
 5. In Discord:
    ```
-   /resound start title:"Engineering Standup"
+   /resound start
    /resound consent
    /resound status
    /resound stop
-   /resound export format:markdown
+   # /resound stop attaches transcript.md automatically
    ```
 
 `/resound start` immediately announces that recording/transcription is active
@@ -171,6 +171,9 @@ run on the operator machine doing the local audio capture. In
 `RESOUND_BOT_MODE=mock`, it produces full artifacts with a sample transcript.
 See [providers.md](providers.md) for why bot-side voice receive is gated on
 DAVE/E2EE.
+
+After a real local capture, `/resound stop` reports independent signal checks
+for the system/call track and microphone track. Both must say `audio detected`.
 
 ### Local Capture Diagnostics
 

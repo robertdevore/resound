@@ -136,7 +136,7 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
   try {
     switch (sub) {
       case "start": {
-        const title = i.options.getString("title", true);
+        const title = i.options.getString("title")?.trim() || "Discord Meeting";
         let recorder: Recorder | undefined;
         let channelId = i.channelId ?? "";
         let voiceWarning = "";
@@ -161,23 +161,36 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
         await reply(i, mgr.consent(user), true);
         return;
       case "pause":
-        await reply(i, mgr.pause());
+        await reply(i, await mgr.pause());
         return;
       case "resume":
-        await reply(i, mgr.resume());
+        await reply(i, await mgr.resume());
         return;
       case "status":
         await reply(i, "```\n" + mgr.status() + "\n```", true);
         return;
       case "stop": {
         await i.deferReply();
-        const session = await mgr.stop();
-        connections.get(guildId)?.destroy();
-        connections.delete(guildId);
-        await i.editReply(
-          `✅ Session saved: \`${session.dir}\`\n${session.segments.length} segment(s) transcribed. ` +
-            `Markdown, JSONL, VTT, SRT, summary and action items written.`
-        );
+        let session;
+        try {
+          session = await mgr.stop();
+        } finally {
+          connections.get(guildId)?.destroy();
+          connections.delete(guildId);
+        }
+        const captureReport = mgr.captureReport();
+        const transcriptStatus = session.segments.length > 0
+          ? `${session.segments.length} segment(s) transcribed.`
+          : "⚠️ No speech was transcribed. Check the capture report and audio routing before the next meeting.";
+        await i.editReply({
+          content: [
+            `✅ Session saved: \`${session.dir}\``,
+            transcriptStatus,
+            ...captureReport,
+            "The Markdown transcript is attached; JSONL, VTT, SRT, summary and action items were also written."
+          ].join("\n"),
+          files: [sessionPaths(session.dir, session.manifest).markdown]
+        });
         return;
       }
       case "export": {

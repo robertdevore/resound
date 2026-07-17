@@ -53,11 +53,11 @@ pnpm cli record --title "Client Call" --system <blackhole-index> --mic <mic-inde
 Recommended slash-command path:
 
 ```bash
-RESOUND_BOT_MODE=local-capture pnpm bot:start
+pnpm bot:start  # .env.example defaults the bot to local-capture
 ```
 
-Then use `/resound start`, `/resound stop`, and `/resound export` in your own
-Discord server. The bot process must run on the machine doing the audio capture.
+Then use `/resound start` and `/resound stop` in your own Discord server; stop
+attaches the Markdown transcript automatically. The bot process must run on the machine doing the audio capture.
 Other operators can clone this repo, create their own Discord app, configure
 their own local audio devices, and run the same workflow for their servers.
 
