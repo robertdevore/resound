@@ -25,6 +25,7 @@ import {
   type Recorder
 } from "@resound/audio";
 import { getTranscriber } from "@resound/transcribers";
+import type { TranscriptionProgress } from "@resound/transcribers";
 import { SessionManager } from "./session-manager.js";
 
 /**
@@ -296,9 +297,58 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
         return;
       case "stop": {
         let session;
+        const transcriptionStartedAt = Date.now();
+        let latestProgress: TranscriptionProgress | undefined;
+        let updateInFlight = false;
+        let updateQueued = false;
+        const publishProgress = async (): Promise<void> => {
+          if (updateInFlight) {
+            updateQueued = true;
+            return;
+          }
+          updateInFlight = true;
+          try {
+            const elapsedSeconds = Math.max(1, (Date.now() - transcriptionStartedAt) / 1000);
+            const progress = latestProgress;
+            const completed = progress?.completedTracks ?? 0;
+            const total = progress?.trackCount ?? 0;
+            const audioCompleted = progress?.completedDurationSeconds ?? 0;
+            const audioTotal = progress?.totalDurationSeconds ?? 0;
+            const rate = audioCompleted > 0 ? audioCompleted / elapsedSeconds : 0;
+            const remainingSeconds = rate > 0 ? Math.max(0, (audioTotal - audioCompleted) / rate) : undefined;
+            await i.editReply({
+              content: [
+                "⏳ **Transcription in progress**",
+                progress?.phase === "track-started"
+                  ? `Currently transcribing: **${progress.trackLabel}**`
+                  : "Preparing the next speaker track...",
+                total > 0 ? `Speaker tracks: ${completed}/${total} complete` : "Speaker tracks: preparing",
+                audioTotal > 0 ? `Audio analyzed: ${formatDuration(audioCompleted)} / ${formatDuration(audioTotal)}` : "Audio analyzed: calculating",
+                `Elapsed: ${formatDuration(elapsedSeconds)}`,
+                remainingSeconds === undefined
+                  ? "Estimated remaining: calculating from the first completed track"
+                  : `Estimated remaining: ${formatDuration(remainingSeconds)}`
+              ].join("\n")
+            });
+          } catch (err) {
+            console.warn("Could not publish transcription progress:", (err as Error).message);
+          } finally {
+            updateInFlight = false;
+            if (updateQueued) {
+              updateQueued = false;
+              void publishProgress();
+            }
+          }
+        };
+        const progressTimer = setInterval(() => void publishProgress(), 120_000);
         try {
-          session = await mgr.stop();
+          await i.editReply("⏳ Audio capture finalized. Starting local transcription...");
+          session = await mgr.stop((progress) => {
+            latestProgress = progress;
+            if (progress.phase === "track-completed") void publishProgress();
+          });
         } finally {
+          clearInterval(progressTimer);
           connections.get(guildId)?.destroy();
           connections.delete(guildId);
         }
@@ -349,6 +399,13 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
   } catch (err) {
     await safeReply(i, `⚠️ ${(err as Error).message}`, true);
   }
+}
+
+function formatDuration(seconds: number): string {
+  const whole = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(whole / 60);
+  const remainder = whole % 60;
+  return minutes > 0 ? `${minutes}m ${remainder}s` : `${remainder}s`;
 }
 
 function main(): void {

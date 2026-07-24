@@ -36,12 +36,20 @@ RESOUND_TRANSCRIBER=local-whisper
 RESOUND_WHISPER_COMMAND=whisper-cli
 RESOUND_WHISPER_FORMAT=whisper.cpp
 RESOUND_WHISPER_MODEL=./models/ggml-base.en.bin
+# Use more CPU threads when no explicit RESOUND_WHISPER_ARGS are set.
+RESOUND_WHISPER_THREADS=8
 ```
 
 To use the Python `openai-whisper` / `faster-whisper` CLIs instead, set
 `RESOUND_WHISPER_FORMAT=openai-whisper` and `RESOUND_WHISPER_COMMAND=whisper`.
 Anything else: point `RESOUND_WHISPER_COMMAND` at your binary and add flags via
 `RESOUND_WHISPER_ARGS`.
+
+For long Discord meetings, Resound transcribes speaker tracks sequentially by
+default so multiple Whisper processes do not compete for the same CPU. The bot
+posts elapsed time, completed tracks, analyzed audio, and an estimated remaining
+time while `/resound stop` is finalizing. Set `RESOUND_WHISPER_ARGS` explicitly
+to override the default thread setting.
 
 ### openai-compatible (optional remote expansion)
 

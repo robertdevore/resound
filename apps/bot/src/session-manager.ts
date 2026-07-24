@@ -11,7 +11,7 @@ import {
   type TranscriptSession
 } from "@resound/core";
 import { MockRecorder, type Recorder } from "@resound/audio";
-import { getTranscriber, type Transcriber } from "@resound/transcribers";
+import { getTranscriber, type Transcriber, type TranscriptionProgress } from "@resound/transcribers";
 import { writeSessionOutputs } from "@resound/exporters";
 
 export interface SessionContext {
@@ -216,7 +216,7 @@ export class SessionManager {
   }
 
   /** Finalize: transcribe captured audio and write all portable outputs. */
-  async stop(): Promise<TranscriptSession> {
+  async stop(onProgress?: (progress: TranscriptionProgress) => void): Promise<TranscriptSession> {
     if (!this.manifest || !this.dir || !this.recorder) throw new Error("No active session.");
     const recorder = this.recorder;
     this.transition("audio-finalizing", "audio-finalizing");
@@ -242,7 +242,8 @@ export class SessionManager {
       participants: this.manifest.participants,
       audioTracks: chunks,
       audioPath: chunks[0]?.path,
-      mock: this.mode === "mock"
+      mock: this.mode === "mock",
+      onProgress
     });
 
     this.manifest.ended_at = new Date().toISOString();

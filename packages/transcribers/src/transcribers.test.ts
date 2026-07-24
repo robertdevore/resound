@@ -129,6 +129,7 @@ describe("local-whisper transcriber", () => {
       return { code: 0, stdout: "", stderr: "" };
     });
     const t = new LocalWhisperTranscriber({ command: "whisper-cli", run });
+    const progress = vi.fn();
     const segs = await t.transcribe({
       participants: [
         { id: "u1", username: "Robert", joined_at: "" },
@@ -138,12 +139,19 @@ describe("local-whisper transcriber", () => {
         { userId: "mixed", username: "Discord Mixed", path: path.join(dir, "mixed.wav"), startSeconds: 0, durationSeconds: 4 },
         { userId: "u1", username: "Robert", path: robert, startSeconds: 0, durationSeconds: 2 },
         { userId: "u2", username: "Ashley", path: ashley, startSeconds: 5, durationSeconds: 2 }
-      ]
+      ],
+      onProgress: progress
     });
     expect(run).toHaveBeenCalledTimes(2);
     expect(segs).toHaveLength(2);
     expect(segs[0]).toMatchObject({ ts: "00:00:00", end_ts: "00:00:02", speaker: "Robert", user_id: "u1", text: "robert first" });
     expect(segs[1]).toMatchObject({ ts: "00:00:05", end_ts: "00:00:07", speaker: "Ashley", user_id: "u2", text: "ashley later" });
+    expect(progress.mock.calls.map(([event]) => event.phase)).toEqual([
+      "track-started",
+      "track-completed",
+      "track-started",
+      "track-completed"
+    ]);
   });
 });
 

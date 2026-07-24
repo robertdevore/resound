@@ -25,6 +25,19 @@ export interface TranscriptionInput {
    * calling any external service. The mock provider always behaves this way.
    */
   mock?: boolean;
+  /** Optional progress hook for long-running local transcription jobs. */
+  onProgress?: (progress: TranscriptionProgress) => void;
+}
+
+export interface TranscriptionProgress {
+  phase: "track-started" | "track-completed";
+  trackIndex: number;
+  trackCount: number;
+  trackLabel: string;
+  completedTracks: number;
+  completedDurationSeconds: number;
+  totalDurationSeconds: number;
+  elapsedMs: number;
 }
 
 export interface TranscriberCapabilities {

@@ -7,7 +7,8 @@ import type {
   Transcriber,
   TranscriptionInput,
   TranscriberCapabilities,
-  TranscriberPreflightResult
+  TranscriberPreflightResult,
+  TranscriptionProgress
 } from "./types.js";
 import {
   defaultSpeaker,
@@ -91,6 +92,7 @@ export class LocalWhisperTranscriber implements Transcriber {
   private readonly command: string;
   private readonly format: WhisperFormat;
   private readonly extraArgs: string[];
+  private readonly defaultThreads: string;
   private readonly run: NonNullable<LocalWhisperOptions["run"]>;
 
   constructor(opts: LocalWhisperOptions = {}) {
@@ -99,6 +101,7 @@ export class LocalWhisperTranscriber implements Transcriber {
     this.format = opts.format ?? (env.RESOUND_WHISPER_FORMAT as WhisperFormat) ?? "whisper.cpp";
     this.model = opts.model ?? env.RESOUND_WHISPER_MODEL ?? "local";
     this.extraArgs = opts.extraArgs ?? splitArgs(env.RESOUND_WHISPER_ARGS);
+    this.defaultThreads = env.RESOUND_WHISPER_THREADS ?? String(Math.min(8, Math.max(2, os.cpus().length - 2)));
     this.run = opts.run ?? defaultRunner;
   }
 
@@ -153,15 +156,43 @@ export class LocalWhisperTranscriber implements Transcriber {
     }
 
     if (tracks.length > 0) {
-      const perTrack = await Promise.all(
-        tracks.map(async (track) =>
-          mapRawSegmentsToSpeakerSegments(await this.transcribeRaw({ ...input, audioPath: track.path }), {
+      const startedAt = Date.now();
+      const totalDurationSeconds = tracks.reduce((sum, track) => sum + track.durationSeconds, 0);
+      let completedTracks = 0;
+      let completedDurationSeconds = 0;
+      const perTrack: ReturnType<typeof mapRawSegmentsToSpeakerSegments>[] = [];
+      for (const [trackIndex, track] of tracks.entries()) {
+        emitProgress(input.onProgress, {
+          phase: "track-started",
+          trackIndex,
+          trackCount: tracks.length,
+          trackLabel: track.resolvedUsername,
+          completedTracks,
+          completedDurationSeconds,
+          totalDurationSeconds,
+          elapsedMs: Date.now() - startedAt
+        });
+        const raw = await this.transcribeRaw({ ...input, audioPath: track.path });
+        perTrack.push(
+          mapRawSegmentsToSpeakerSegments(raw, {
             userId: track.userId,
             username: track.resolvedUsername,
             startSeconds: track.startSeconds
           })
-        )
-      );
+        );
+        completedTracks += 1;
+        completedDurationSeconds += track.durationSeconds;
+        emitProgress(input.onProgress, {
+          phase: "track-completed",
+          trackIndex,
+          trackCount: tracks.length,
+          trackLabel: track.resolvedUsername,
+          completedTracks,
+          completedDurationSeconds,
+          totalDurationSeconds,
+          elapsedMs: Date.now() - startedAt
+        });
+      }
       return mergeTranscriptSegments(perTrack.flat());
     }
 
@@ -180,6 +211,7 @@ export class LocalWhisperTranscriber implements Transcriber {
     const args = [
       ...(this.model && this.model !== "local" ? ["-m", this.model] : []),
       ...(input.language ? ["-l", input.language] : []),
+      ...(hasThreadArg(this.extraArgs) ? [] : ["-t", this.defaultThreads]),
       ...this.extraArgs,
       "-f",
       input.audioPath!,
@@ -244,6 +276,17 @@ export class LocalWhisperTranscriber implements Transcriber {
 
 function splitArgs(s?: string): string[] {
   return s ? s.split(/\s+/).filter(Boolean) : [];
+}
+
+function hasThreadArg(args: string[]): boolean {
+  return args.some((arg) => arg === "-t" || arg === "--threads");
+}
+
+function emitProgress(
+  callback: TranscriptionInput["onProgress"],
+  progress: TranscriptionProgress
+): void {
+  callback?.(progress);
 }
 
 function defaultRunner(
