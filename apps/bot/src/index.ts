@@ -6,6 +6,7 @@ try {
   /* no .env file — rely on the ambient environment */
 }
 import fs from "node:fs";
+import path from "node:path";
 import {
   Client,
   Events,
@@ -15,7 +16,13 @@ import {
   type ChatInputCommandInteraction
 } from "discord.js";
 import { sessionPaths } from "@resound/core";
-import { DiscordRecorder, MockRecorder, SystemRecorder, type Recorder } from "@resound/audio";
+import {
+  DiscordRecorder,
+  MockRecorder,
+  PycordDiscordRecorder,
+  SystemRecorder,
+  type Recorder
+} from "@resound/audio";
 import { getTranscriber } from "@resound/transcribers";
 import { SessionManager } from "./session-manager.js";
 
@@ -27,17 +34,21 @@ import { SessionManager } from "./session-manager.js";
  *    the mock recorder, WITHOUT joining voice. Always works.
  *  - "local-capture": slash commands control this machine's system/mic capture
  *    via ffmpeg + avfoundation. This is the reliable real-audio path today.
- *  - "discord": joins the caller's voice channel and uses the live
- *    DiscordRecorder. ⚠️ As of June 2026, Discord voice *receive* is blocked by
- *    DAVE/E2EE in @discordjs/voice, so live capture may yield no audio until
- *    upstream fixes land — see docs/providers.md. For a real transcript today,
- *    record the call and run `resound transcribe <file>`.
+ *  - "discord": joins the caller's voice channel and uses the configured
+ *    Discord-native receiver backend. `RESOUND_DISCORD_RECEIVER_BACKEND=auto`
+ *    prefers the Pycord sidecar and falls back to the legacy
+ *    `@discordjs/voice` path. Live acceptance still matters, but this is now a
+ *    real backend instead of a placeholder-only path.
  */
 
 const BOT_MODE = (process.env.RESOUND_BOT_MODE ?? "mock").trim();
 const DISCORD_MODE = BOT_MODE === "discord" || BOT_MODE === "discord-native";
 const LOCAL_CAPTURE_MODE = BOT_MODE === "local-capture";
 const AUTO_MODE = BOT_MODE === "auto";
+type DiscordReceiverBackend = "auto" | "pycord" | "discordjs";
+const DISCORD_RECEIVER_BACKEND = (
+  process.env.RESOUND_DISCORD_RECEIVER_BACKEND ?? "auto"
+).trim() as DiscordReceiverBackend;
 
 // Live voice connections per guild, so we can leave on stop.
 const connections = new Map<string, { destroy(): void }>();
@@ -73,52 +84,76 @@ async function reply(i: ChatInputCommandInteraction, content: string, ephemeral 
 async function buildLiveRecorder(
   i: ChatInputCommandInteraction
 ): Promise<{ recorder?: Recorder; channelId: string; warning: string }> {
-  try {
-    const member = i.member as GuildMember | null;
-    const voiceChannel = member?.voice?.channel;
-    const guild = i.guild;
-    if (!voiceChannel || !guild) {
-      return {
-        channelId: "",
-        warning:
-          "\n⚠️ You are not in a voice channel, so nothing is being captured. Join voice and `/resound start` again."
-      };
-    }
-
-    const voiceMod = "@discordjs/voice";
-    const { joinVoiceChannel } = (await import(voiceMod)) as {
-      joinVoiceChannel: (opts: Record<string, unknown>) => { destroy(): void; receiver: unknown };
-    };
-    const connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: guild.id,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: false, // must hear others to receive
-      selfMute: true
-    });
-    connections.set(guild.id, connection);
-
-    const recorder = new DiscordRecorder({
-      connection: connection as never,
-      resolveUsername: (id) => guild.members.cache.get(id)?.user.username ?? id
-    });
-
-    return {
-      recorder,
-      channelId: voiceChannel.id,
-      warning:
-        "\n⚠️ Live capture is experimental: Discord DAVE/E2EE currently blocks voice receive in " +
-        "@discordjs/voice, so audio may be empty. If the transcript is empty, record the call and use " +
-        "`resound transcribe <file>`."
-    };
-  } catch (err) {
+  const member = i.member as GuildMember | null;
+  const voiceChannel = member?.voice?.channel;
+  const guild = i.guild;
+  if (!voiceChannel || !guild) {
     return {
       channelId: "",
       warning:
-        `\n⚠️ Could not start live voice capture (${(err as Error).message}). ` +
-        "Session still recorded; use `resound transcribe <file>` for a real transcript."
+        "\n⚠️ You are not in a voice channel, so nothing is being captured. Join voice and `/resound start` again."
     };
   }
+
+  const backends: Exclude<DiscordReceiverBackend, "auto">[] =
+    DISCORD_RECEIVER_BACKEND === "auto" ? ["pycord", "discordjs"] : [DISCORD_RECEIVER_BACKEND];
+  const failures: string[] = [];
+
+  for (const backend of backends) {
+    try {
+      if (backend === "pycord") {
+        return {
+          recorder: new PycordDiscordRecorder({
+            token: process.env.DISCORD_TOKEN ?? "",
+            guildId: guild.id,
+            channelId: voiceChannel.id,
+            pythonPath: process.env.RESOUND_DISCORD_PYTHON,
+            pythonPathEntries: process.env.RESOUND_DISCORD_PYTHONPATH
+              ?.split(path.delimiter)
+              .filter(Boolean)
+          }),
+          channelId: voiceChannel.id,
+          warning:
+            "\n🎙️ Discord-native capture is using the Pycord sidecar receiver. " +
+            "Run `/resound doctor` and a real voice-channel smoke test before treating it as production-ready."
+        };
+      }
+
+      const voiceMod = "@discordjs/voice";
+      const { joinVoiceChannel } = (await import(voiceMod)) as {
+        joinVoiceChannel: (opts: Record<string, unknown>) => { destroy(): void; receiver: unknown };
+      };
+      const connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: guild.id,
+        adapterCreator: guild.voiceAdapterCreator,
+        selfDeaf: false,
+        selfMute: true
+      });
+      connections.set(guild.id, connection);
+
+      return {
+        recorder: new DiscordRecorder({
+          connection: connection as never,
+          resolveUsername: (id) => guild.members.cache.get(id)?.user.username ?? id
+        }),
+        channelId: voiceChannel.id,
+        warning:
+          "\n⚠️ Discord-native capture is using the legacy @discordjs/voice backend. " +
+          "DAVE/E2EE can still leave this path empty; prefer the Pycord backend unless you are intentionally comparing stacks."
+      };
+    } catch (err) {
+      failures.push(`${backend}: ${(err as Error).message}`);
+    }
+  }
+
+  return {
+    channelId: "",
+    warning:
+      "\n⚠️ Could not start live voice capture (" +
+      failures.join("; ") +
+      "). Session still recorded; use `resound transcribe <file>` for a real transcript."
+  };
 }
 
 function buildLocalCaptureRecorder(): Recorder {

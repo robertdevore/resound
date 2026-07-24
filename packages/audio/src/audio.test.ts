@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   MockRecorder,
+  PycordDiscordRecorder,
   buildSystemFfmpegArgs,
   isCleanSystemRecorderClose,
   pcmDurationSeconds,
@@ -84,5 +85,86 @@ describe("system recorder helpers", () => {
     expect(isCleanSystemRecorderClose(null, "SIGINT")).toBe(true);
     expect(isCleanSystemRecorderClose(null, "SIGTERM")).toBe(true);
     expect(isCleanSystemRecorderClose(1, null)).toBe(false);
+  });
+});
+
+describe("pycord discord recorder", () => {
+  function createFakePython(dir: string): string {
+    const driver = path.join(dir, "fake-sidecar.mjs");
+    fs.writeFileSync(
+      driver,
+      `
+import fs from "node:fs";
+import path from "node:path";
+
+const args = process.argv.slice(2);
+if (args.includes("--probe")) {
+  console.log(JSON.stringify({ event: "ready", dave: true }));
+  process.exit(0);
+}
+
+const sessionDir = args[args.indexOf("--session-dir") + 1];
+const mixed = path.join(sessionDir, "audio", "raw", "mixed.wav");
+fs.mkdirSync(path.dirname(mixed), { recursive: true });
+fs.writeFileSync(mixed, "fake");
+console.log(JSON.stringify({ event: "ready", dave: true }));
+
+let done = false;
+function stop() {
+  if (done) return;
+  done = true;
+  console.log(JSON.stringify({
+    event: "stopped",
+    tracks: [
+      {
+        userId: "mixed",
+        username: "Discord Mixed",
+        path: mixed,
+        startSeconds: 0,
+        durationSeconds: 1.25
+      }
+    ],
+    warnings: ["sidecar smoke warning"]
+  }));
+}
+
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (chunk) => {
+  if (String(chunk).includes("stop")) stop();
+});
+process.stdin.on("end", stop);
+`,
+      "utf8"
+    );
+    const launcher = path.join(dir, "fake-python.sh");
+    fs.writeFileSync(launcher, `#!/bin/sh\nexec "${process.execPath}" "${driver}" "$@"\n`, "utf8");
+    fs.chmodSync(launcher, 0o755);
+    return launcher;
+  }
+
+  it("probes and stops through the sidecar protocol", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-pycord-"));
+    const pythonPath = createFakePython(dir);
+    const recorder = new PycordDiscordRecorder({
+      token: "token",
+      guildId: "123",
+      channelId: "456",
+      pythonPath,
+      startupTimeoutMs: 2_000
+    });
+
+    const preflight = await recorder.preflight({ sessionDir: dir, strictConsent: true });
+    expect(preflight.status).toBe("warning");
+    expect(preflight.errors).toEqual([]);
+    expect(preflight.dependencies.some((dep) => dep.name === "pycord-sidecar" && dep.ok)).toBe(true);
+
+    await recorder.start({ sessionDir: dir });
+    expect(recorder.getHealth().status).toBe("recording");
+
+    const chunks = await recorder.stop();
+    expect(chunks).toHaveLength(1);
+    expect(chunks[0]!.path).toContain("mixed.wav");
+    expect(recorder.getHealth().status).toBe("warning");
+    expect(recorder.captureSummary()).toEqual(["sidecar smoke warning"]);
   });
 });

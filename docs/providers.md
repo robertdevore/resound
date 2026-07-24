@@ -62,19 +62,24 @@ RESOUND_TRANSCRIBER_MODEL=whisper-1
 
 ## ⚠️ Discord voice receive, DAVE, and E2EE — current status (Friday, July 24, 2026)
 
-**As of Friday, July 24, 2026, live voice *receive* in third-party bots is effectively
-blocked by DAVE.** This is an upstream limitation, not a Resound one.
+**As of Friday, July 24, 2026, Discord voice receive is no longer just a
+placeholder in Resound, but it is still not fully signed off for production.**
+The remaining gap is live acceptance evidence in a real DAVE-protected call.
 
 - **DAVE is now mandatory.** Discord's MLS-based end-to-end encryption (DAVE)
   was enforced across all voice channels (enforcement March 2, 2026; rollout
   reported complete May 19, 2026). Voice is E2EE by default.
-- **`@discordjs/voice` receive is broken under DAVE.** With DAVE on, bots that
+- **`@discordjs/voice` receive is still unreliable under DAVE.** With DAVE on, bots that
   try to *receive* audio hit reconnect loops, no `speaking` events, and
   decryption failures such as `DecryptionFailed(UnencryptedWhenPassthroughDisabled)`
   and `Cannot read properties of undefined (reading 'decrypt')` in
   `VoiceReceiver.onUdpMessage`. **Sending** works; **receiving** does not.
 - `@snazzah/davey` is the DAVE protocol library bundled with `@discordjs/voice`,
   but the *receive* decrypt path is not yet wired up.
+- **Pycord 2.8.0 ships an active DAVE receive path.** Resound now uses a
+  Python sidecar around Pycord's voice receiver by default in
+  `RESOUND_BOT_MODE=discord` / `discord-native`, with a real runtime preflight
+  for `py-cord[voice]`, `davey`, `PyNaCl`, and `libopus`.
 - Legacy "subscribe to a user's Opus stream and decode it" snippets predate DAVE
   and will not work in DAVE-protected calls.
 
@@ -100,33 +105,40 @@ Sources: [discord.js #11419](https://github.com/discordjs/discord.js/issues/1141
    through `local-whisper` or an OpenAI-compatible endpoint. This works now and
    needs no bot-side voice receive. See [usage.md](usage.md#meeting-workflow--transcribe-a-recording-works-today-no-dave).
 
-2. **The live path is built and gated, ready for when upstream is fixed.**
-   `DiscordRecorder` (`packages/audio/src/discord-recorder.ts`) implements the
-   real receive pipeline: subscribe per speaker → Opus decode (`prism-media`) →
-   per-utterance WAV in `audio/chunks/` (one file per user, so diarization maps
-   to real `user_id`s). It is wired into the bot under `RESOUND_BOT_MODE=discord`
-   and joins the caller's voice channel. Its native deps (`@discordjs/voice`,
-   `prism-media`, `@discordjs/opus`) are lazy-loaded and intentionally not
-   installed by default, so the supported local-capture path stays small and
-   avoids a fragile native Opus build.
+2. **The live path is now implemented in two backends, with Pycord preferred.**
+   `PycordDiscordRecorder` (`packages/audio/src/pycord-discord-recorder.ts`)
+   launches a Python sidecar (`packages/audio/python/discord_native_sidecar.py`)
+   that logs into Discord, joins the requested voice channel, records per-user
+   PCM through Pycord's DAVE-aware receive path, writes aligned speaker WAVs
+   plus `audio/raw/mixed.wav`, and returns chunk metadata to the normal Resound
+   pipeline. `DiscordRecorder` remains available as the older
+   `@discordjs/voice` backend.
 
-   Because of the DAVE receive bug above, live mode **may capture no audio**
-   right now — the bot says so in its `/resound start` reply. In `auto` mode,
-   Resound now falls back only to preflighted local-capture; if neither real
-   recorder is ready, start fails before recording begins. When
-   `@discordjs/voice` ships working DAVE receive, install the optional deps and
-   set `RESOUND_BOT_MODE=discord`; **no Resound code change is required.**
+   The bot now selects receiver backends like this:
+   - `RESOUND_DISCORD_RECEIVER_BACKEND=auto` (default): try the Pycord sidecar first, then the legacy `@discordjs/voice` backend.
+   - `RESOUND_DISCORD_RECEIVER_BACKEND=pycord`: force the Pycord sidecar.
+   - `RESOUND_DISCORD_RECEIVER_BACKEND=discordjs`: force the old Node receive stack.
 
-To enable live mode (once upstream receive works):
+   In `auto` bot mode, Resound still falls back only to preflighted
+   local-capture; if neither real recorder is ready, start fails before
+   recording begins.
+
+To enable the preferred live mode on a fresh machine:
 
 ```bash
-pnpm --filter @resound/bot add @discordjs/voice prism-media @discordjs/opus libsodium-wrappers
-RESOUND_BOT_MODE=discord pnpm bot:start
+python3 -m pip install -U "py-cord[voice]"
+RESOUND_BOT_MODE=discord \
+RESOUND_DISCORD_RECEIVER_BACKEND=pycord \
+pnpm bot:start
 ```
 
-**Re-verify before relying on live capture:** DAVE receive support in the exact
-`@discordjs/voice` version, the Opus + crypto native deps, and per-user stream
-separation.
+On this machine, `python3 packages/audio/python/discord_native_sidecar.py --probe`
+now returns a successful readiness payload with `py-cord 2.8.0`, `dave=true`,
+and `opus=true`.
+
+**Re-verify before relying on live capture:** successful sidecar probe,
+real-voice recording in a DAVE-protected call, per-user stream separation, and
+end-to-end transcript quality on saved artifacts.
 
 ### What `local-capture` means
 

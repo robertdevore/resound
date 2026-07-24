@@ -100,10 +100,10 @@ resound/
 - ✅ **Local capture bot mode** (`RESOUND_BOT_MODE=local-capture`) — slash
   commands control this machine's system/mic capture.
 - ✅ `RESOUND_BOT_MODE=auto` now performs explicit recorder preflight and only falls back from Discord-native to local-capture when local capture is actually configured.
-- ✅ Live `DiscordRecorder` is implemented and wired into the bot
-  (`RESOUND_BOT_MODE=discord` / `discord-native`), with optional/lazy native deps.
-- ⛔ **Live Discord voice *receive* is currently blocked upstream by DAVE/E2EE**
-  (mandatory across Discord voice as of Friday, July 24, 2026; `@discordjs/voice` receive is still not a production-safe receive path).
-  See [docs/providers.md](docs/providers.md). Until upstream fixes it, use the
-  record-a-file workflow; the day receive works, flip `RESOUND_BOT_MODE=discord`
-  with no code change.
+- ✅ Discord-native bot mode now prefers a **Pycord voice sidecar** receiver
+  with explicit preflight, while keeping the legacy `@discordjs/voice` path as
+  an opt-in fallback (`RESOUND_DISCORD_RECEIVER_BACKEND=discordjs`).
+- ⚠️ **Discord-native receive still needs live acceptance evidence** before it
+  should be treated as production-ready. The dependency/runtime handshake now
+  works on this machine, but real multi-speaker call validation remains the
+  gating step. See [docs/providers.md](docs/providers.md).

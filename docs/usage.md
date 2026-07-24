@@ -27,6 +27,9 @@ cp .env.example .env   # without .env, Resound falls back to mock mode
 | `DISCORD_TOKEN` / `DISCORD_CLIENT_ID` | — | Discord bot |
 | `DISCORD_GUILD_ID` | — | Register slash commands to one guild (instant) |
 | `RESOUND_BOT_MODE` | `local-capture` in the template | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto` |
+| `RESOUND_DISCORD_RECEIVER_BACKEND` | `auto` | `auto` \| `pycord` \| `discordjs` for Discord-native bot receive |
+| `RESOUND_DISCORD_PYTHON` | `python3` on PATH | Python interpreter for the Pycord sidecar |
+| `RESOUND_DISCORD_PYTHONPATH` | — | Extra `PYTHONPATH` entries for the Pycord sidecar |
 | `RESOUND_AUDIO_DEVICE` | — | Single local input device for `record` / local-capture |
 | `RESOUND_AUDIO_SYSTEM_DEVICE` | — | Local system/call audio input, usually BlackHole |
 | `RESOUND_AUDIO_MIC_DEVICE` | — | Local microphone input |
@@ -127,7 +130,7 @@ There are four bot modes:
 | --- | --- | --- |
 | `mock` | Slash commands, consent, session state, exports, sample transcript | No |
 | `local-capture` | Slash commands control this machine's configured system/mic recorder | Yes, if local audio routing works |
-| `discord` / `discord-native` | Experimental bot-side voice receive through `@discordjs/voice` | Usually no today; gated by DAVE/E2EE |
+| `discord` / `discord-native` | Discord-native receive, preferring the Pycord sidecar and optionally falling back to `@discordjs/voice` | Potentially yes; still requires live DAVE acceptance testing |
 | `auto` | Preflight Discord-native first, then explicit fallback to local-capture if local capture is configured | Yes, but only if one real recorder passes preflight |
 
 For reusable real-world use, give each operator their own local setup: they
@@ -154,6 +157,13 @@ and use `/resound` to control local capture.
    RESOUND_WHISPER_MODEL=./models/ggml-base.en.bin
    ```
 
+   For Discord-native receive with the preferred Pycord sidecar:
+   ```bash
+   python3 -m pip install -U "py-cord[voice]"
+   RESOUND_BOT_MODE=discord
+   RESOUND_DISCORD_RECEIVER_BACKEND=pycord
+   ```
+
 4. Register commands and start the bot from the repository root:
    ```bash
    pnpm build
@@ -175,7 +185,7 @@ and use `/resound` to control local capture.
 run on the operator machine doing the local audio capture. In
 `RESOUND_BOT_MODE=mock`, it produces full artifacts with a sample transcript.
 See [providers.md](providers.md) for why bot-side voice receive is gated on
-DAVE/E2EE.
+DAVE/E2EE and what still needs live verification.
 
 After a real local capture, `/resound stop` reports independent signal checks
 for the system/call track and microphone track. Both must say `audio detected`.
