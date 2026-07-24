@@ -68,6 +68,7 @@ export async function createMockSession(
   const segments = await transcriber.transcribe({
     sessionDir: dir,
     participants: manifest.participants,
+    audioTracks: chunks,
     audioPath: chunks[0]?.path,
     mock: true
   });

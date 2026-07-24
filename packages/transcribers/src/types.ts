@@ -1,9 +1,19 @@
 import type { Participant, TranscriptSegment } from "@resound/core";
 
+export interface TranscriptionTrack {
+  path: string;
+  userId: string;
+  username: string;
+  startSeconds: number;
+  durationSeconds: number;
+}
+
 /** Input handed to a transcription provider. */
 export interface TranscriptionInput {
   /** Path to an audio file or chunk directory, if real audio is available. */
   audioPath?: string;
+  /** Optional speaker or source-specific audio tracks for timestamp-aware merging. */
+  audioTracks?: TranscriptionTrack[];
   /** The session directory (providers may read audio/chunks from here). */
   sessionDir?: string;
   /** Known participants, used to map speakers when diarization is unavailable. */

@@ -1,13 +1,20 @@
 import fs from "node:fs";
-import { formatTimestamp, type TranscriptSegment } from "@resound/core";
+import type { TranscriptSegment } from "@resound/core";
 import type {
   Transcriber,
   TranscriptionInput,
   TranscriberCapabilities,
   TranscriberPreflightResult
 } from "./types.js";
+import {
+  defaultSpeaker,
+  mapRawSegmentsToSpeakerSegments,
+  mergeTranscriptSegments,
+  selectEffectiveTracks,
+  type RawSegment
+} from "./tracks.js";
 
-interface VerboseSegment {
+interface VerboseSegment extends RawSegment {
   start: number;
   end: number;
   text: string;
@@ -42,7 +49,7 @@ export class OpenAICompatibleTranscriber implements Transcriber {
     local: false,
     remote: true,
     segmentTimestamps: true,
-    speakerAware: false,
+    speakerAware: true,
     wordTimestamps: false,
     contextualPrompting: false,
     confidence: true,
@@ -92,18 +99,39 @@ export class OpenAICompatibleTranscriber implements Transcriber {
   }
 
   async transcribe(input: TranscriptionInput): Promise<TranscriptSegment[]> {
-    if (!input.audioPath || !fs.existsSync(input.audioPath)) {
+    const tracks = selectEffectiveTracks(input);
+    const singlePath = input.audioPath && fs.existsSync(input.audioPath) ? input.audioPath : undefined;
+    if (!singlePath && tracks.length === 0) {
       throw new Error(
         "OpenAICompatibleTranscriber requires an existing audioPath. Use local-whisper or mock for sessions without an audio file."
       );
     }
 
-    const speaker = input.participants?.[0]?.username ?? "Speaker";
-    const userId = input.participants?.[0]?.id ?? "";
+    if (tracks.length > 0) {
+      const perTrack = await Promise.all(
+        tracks.map(async (track) =>
+          mapRawSegmentsToSpeakerSegments(await this.transcribeRaw({ ...input, audioPath: track.path }), {
+            userId: track.userId,
+            username: track.resolvedUsername,
+            startSeconds: track.startSeconds
+          })
+        )
+      );
+      return mergeTranscriptSegments(perTrack.flat());
+    }
 
+    const speaker = defaultSpeaker(input);
+    return mapRawSegmentsToSpeakerSegments(await this.transcribeRaw({ ...input, audioPath: singlePath }), speaker);
+  }
+
+  private async transcribeRaw(input: TranscriptionInput): Promise<RawSegment[]> {
+    const audioPath = input.audioPath;
+    if (!audioPath) {
+      throw new Error("OpenAICompatibleTranscriber requires an audioPath for transcription.");
+    }
     const form = new FormData();
-    const data = await fs.promises.readFile(input.audioPath);
-    form.append("file", new Blob([data]), input.audioPath.split("/").pop() ?? "audio.wav");
+    const data = await fs.promises.readFile(audioPath);
+    form.append("file", new Blob([data]), audioPath.split("/").pop() ?? "audio.wav");
     form.append("model", this.model);
     form.append("response_format", "verbose_json");
     form.append("timestamp_granularities[]", "segment");
@@ -120,15 +148,11 @@ export class OpenAICompatibleTranscriber implements Transcriber {
     const json = (await res.json()) as { segments?: VerboseSegment[]; text?: string };
     const raw = json.segments ?? [];
     if (raw.length === 0 && json.text) {
-      return [
-        { ts: "00:00:00", end_ts: "00:00:00", speaker, user_id: userId, text: json.text.trim(), confidence: 0 }
-      ];
+      return [{ start: 0, end: 0, text: json.text.trim(), confidence: 0 }];
     }
     return raw.map((s) => ({
-      ts: formatTimestamp(s.start),
-      end_ts: formatTimestamp(s.end),
-      speaker,
-      user_id: userId,
+      start: s.start,
+      end: s.end,
       text: s.text.trim(),
       confidence: s.avg_logprob != null ? clamp01(Math.exp(s.avg_logprob)) : 0
     }));

@@ -111,6 +111,40 @@ describe("local-whisper transcriber", () => {
     const t = new LocalWhisperTranscriber({ command: "nope", run });
     await expect(t.transcribe({ audioPath: audio })).rejects.toThrow(/not found|RESOUND_WHISPER_COMMAND/);
   });
+
+  it("merges per-speaker tracks back into one timestamp-ordered transcript", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-lw-"));
+    const robert = path.join(dir, "robert.wav");
+    const ashley = path.join(dir, "ashley.wav");
+    fs.writeFileSync(robert, "r");
+    fs.writeFileSync(ashley, "a");
+    const run = vi.fn(async (_cmd: string, args: string[]) => {
+      const audioPath = args[args.indexOf("-f") + 1]!;
+      const outBase = args[args.indexOf("-of") + 1]!;
+      const payload =
+        audioPath === robert
+          ? { transcription: [{ offsets: { from: 0, to: 2000 }, text: " robert first" }] }
+          : { transcription: [{ offsets: { from: 0, to: 2000 }, text: " ashley later" }] };
+      fs.writeFileSync(`${outBase}.json`, JSON.stringify(payload));
+      return { code: 0, stdout: "", stderr: "" };
+    });
+    const t = new LocalWhisperTranscriber({ command: "whisper-cli", run });
+    const segs = await t.transcribe({
+      participants: [
+        { id: "u1", username: "Robert", joined_at: "" },
+        { id: "u2", username: "Ashley", joined_at: "" }
+      ],
+      audioTracks: [
+        { userId: "mixed", username: "Discord Mixed", path: path.join(dir, "mixed.wav"), startSeconds: 0, durationSeconds: 4 },
+        { userId: "u1", username: "Robert", path: robert, startSeconds: 0, durationSeconds: 2 },
+        { userId: "u2", username: "Ashley", path: ashley, startSeconds: 5, durationSeconds: 2 }
+      ]
+    });
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(segs).toHaveLength(2);
+    expect(segs[0]).toMatchObject({ ts: "00:00:00", end_ts: "00:00:02", speaker: "Robert", user_id: "u1", text: "robert first" });
+    expect(segs[1]).toMatchObject({ ts: "00:00:05", end_ts: "00:00:07", speaker: "Ashley", user_id: "u2", text: "ashley later" });
+  });
 });
 
 describe("mock transcriber", () => {

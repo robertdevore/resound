@@ -240,6 +240,7 @@ export class SessionManager {
     const segments = await transcriber.transcribe({
       sessionDir: this.dir,
       participants: this.manifest.participants,
+      audioTracks: chunks,
       audioPath: chunks[0]?.path,
       mock: this.mode === "mock"
     });

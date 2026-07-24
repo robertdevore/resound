@@ -9,6 +9,13 @@ import type {
   TranscriberCapabilities,
   TranscriberPreflightResult
 } from "./types.js";
+import {
+  defaultSpeaker,
+  mapRawSegmentsToSpeakerSegments,
+  mergeTranscriptSegments,
+  selectEffectiveTracks,
+  type RawSegment
+} from "./tracks.js";
 
 /**
  * Local-first transcription. Shells out to a locally installed Whisper binary so
@@ -23,14 +30,8 @@ import type {
 
 export type WhisperFormat = "whisper.cpp" | "openai-whisper";
 
-interface RawSeg {
-  start: number; // seconds
-  end: number; // seconds
-  text: string;
-}
-
 /** Parse whisper.cpp full JSON (offsets are milliseconds). */
-export function parseWhisperCppJson(json: string): RawSeg[] {
+export function parseWhisperCppJson(json: string): RawSegment[] {
   const data = JSON.parse(json) as {
     transcription?: { offsets?: { from?: number; to?: number }; text?: string }[];
   };
@@ -43,7 +44,7 @@ export function parseWhisperCppJson(json: string): RawSeg[] {
 }
 
 /** Parse the OpenAI/openai-whisper Python CLI JSON (start/end in seconds). */
-export function parseOpenAiWhisperJson(json: string): RawSeg[] {
+export function parseOpenAiWhisperJson(json: string): RawSegment[] {
   const data = JSON.parse(json) as {
     segments?: { start?: number; end?: number; text?: string }[];
     text?: string;
@@ -80,7 +81,7 @@ export class LocalWhisperTranscriber implements Transcriber {
     local: true,
     remote: false,
     segmentTimestamps: true,
-    speakerAware: false,
+    speakerAware: true,
     wordTimestamps: false,
     contextualPrompting: false,
     confidence: false,
@@ -143,33 +144,38 @@ export class LocalWhisperTranscriber implements Transcriber {
   }
 
   async transcribe(input: TranscriptionInput): Promise<TranscriptSegment[]> {
-    if (!input.audioPath || !fs.existsSync(input.audioPath)) {
+    const tracks = selectEffectiveTracks(input);
+    const singlePath = input.audioPath && fs.existsSync(input.audioPath) ? input.audioPath : undefined;
+    if (!singlePath && tracks.length === 0) {
       throw new Error(
         "LocalWhisperTranscriber requires an existing audioPath. Record the call to a file first, or use the mock provider."
       );
     }
 
-    const speaker = input.participants?.[0]?.username ?? "Speaker";
-    const userId = input.participants?.[0]?.id ?? "";
+    if (tracks.length > 0) {
+      const perTrack = await Promise.all(
+        tracks.map(async (track) =>
+          mapRawSegmentsToSpeakerSegments(await this.transcribeRaw({ ...input, audioPath: track.path }), {
+            userId: track.userId,
+            username: track.resolvedUsername,
+            startSeconds: track.startSeconds
+          })
+        )
+      );
+      return mergeTranscriptSegments(perTrack.flat());
+    }
 
-    const raw =
-      this.format === "openai-whisper"
-        ? await this.runOpenAiWhisper(input)
-        : await this.runWhisperCpp(input);
-
-    return raw
-      .filter((s) => s.text.length > 0)
-      .map((s) => ({
-        ts: formatTimestamp(s.start),
-        end_ts: formatTimestamp(s.end),
-        speaker,
-        user_id: userId,
-        text: s.text,
-        confidence: 0
-      }));
+    const speaker = defaultSpeaker(input);
+    return mapRawSegmentsToSpeakerSegments(await this.transcribeRaw({ ...input, audioPath: singlePath }), speaker);
   }
 
-  private async runWhisperCpp(input: TranscriptionInput): Promise<RawSeg[]> {
+  private async transcribeRaw(input: TranscriptionInput): Promise<RawSegment[]> {
+    return this.format === "openai-whisper"
+      ? this.runOpenAiWhisper(input)
+      : this.runWhisperCpp(input);
+  }
+
+  private async runWhisperCpp(input: TranscriptionInput): Promise<RawSegment[]> {
     const outBase = path.join(os.tmpdir(), `resound-whisper-${Date.now()}`);
     const args = [
       ...(this.model && this.model !== "local" ? ["-m", this.model] : []),
@@ -193,7 +199,7 @@ export class LocalWhisperTranscriber implements Transcriber {
     return parsed;
   }
 
-  private async runOpenAiWhisper(input: TranscriptionInput): Promise<RawSeg[]> {
+  private async runOpenAiWhisper(input: TranscriptionInput): Promise<RawSegment[]> {
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-whisper-"));
     const args = [
       input.audioPath!,
