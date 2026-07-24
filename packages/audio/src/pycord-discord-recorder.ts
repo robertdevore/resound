@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -87,6 +88,7 @@ export class PycordDiscordRecorder implements Recorder {
   private status: RecordingHealth["status"] = "idle";
   private stopped?: SidecarStoppedEvent;
   private stderrTail = "";
+  private stderrLogPath?: string;
   private terminalError?: Error;
   private pending:
     Array<{
@@ -190,10 +192,17 @@ export class PycordDiscordRecorder implements Recorder {
     this.status = "recording";
     this.stopped = undefined;
     this.stderrTail = "";
+    this.stderrLogPath = path.join(options.sessionDir, "audio", "raw", "pycord-sidecar.stderr.log");
     this.terminalError = undefined;
+    fs.mkdirSync(path.dirname(this.stderrLogPath), { recursive: true });
+    fs.writeFileSync(this.stderrLogPath, "", "utf8");
 
     child.stderr?.on("data", (chunk) => {
-      this.stderrTail = (this.stderrTail + String(chunk)).slice(-2000);
+      const text = String(chunk);
+      this.stderrTail = (this.stderrTail + text).slice(-4000);
+      if (this.stderrLogPath) {
+        fs.appendFileSync(this.stderrLogPath, text, "utf8");
+      }
     });
     this.lines.on("line", (line) => this.handleLine(line));
     child.on("error", (err) => {
@@ -204,7 +213,7 @@ export class PycordDiscordRecorder implements Recorder {
     child.on("exit", (code, signal) => {
       if (this.status !== "idle" && this.status !== "failed") {
         const error = new Error(
-          `Pycord sidecar exited unexpectedly (${code ?? signal}). ${this.stderrTail.slice(0, 500)}`
+          `Pycord sidecar exited unexpectedly (${code ?? signal}). ${this.stderrTail.slice(0, 500)}${this.stderrLogPath ? ` See ${this.stderrLogPath}.` : ""}`
         );
         this.terminalError = error;
         this.status = this.stopped ? "warning" : "failed";
