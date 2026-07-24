@@ -51,6 +51,27 @@ posts elapsed time, completed tracks, analyzed audio, and an estimated remaining
 time while `/resound stop` is finalizing. Set `RESOUND_WHISPER_ARGS` explicitly
 to override the default thread setting.
 
+#### Choosing a Whisper model
+
+Use a **multilingual** model for international meetings. The `.en` models are
+English-only; they can handle English accents, but they are not the right choice
+when participants may speak other languages. The practical progression is:
+
+| Model | Use case | Tradeoff |
+| --- | --- | --- |
+| `small.en` | English-only, fastest local option | More recognition errors than larger models |
+| `medium` | Recommended first upgrade for global meetings | About 1.5 GB; slower and more CPU/RAM intensive |
+| `large-v3-turbo` | Stronger accuracy with a large-model architecture | About 1.6 GB; benchmark locally before production use |
+| `large-v3` | Highest accuracy target in the official Whisper family | About 3.1 GB and usually impractical on CPU-only laptops |
+
+The official `whisper.cpp` model registry includes `medium`, `large-v3`, and
+`large-v3-turbo` conversions. Model size improves recognition, but cannot
+guarantee perfect transcripts: microphone quality, crosstalk, packet loss,
+language switching, and overlapping speakers still matter. On this Intel Mac,
+Homebrew `whisper-cli` uses CPU/BLAS rather than Metal, so `medium` is the
+recommended production starting point; benchmark `large-v3-turbo` against a
+representative multilingual recording before moving up again.
+
 ### openai-compatible (optional remote expansion)
 
 For an optional cloud/remote path that is **not** locked to OpenAI:
