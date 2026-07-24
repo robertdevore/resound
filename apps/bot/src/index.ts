@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   Client,
+  DiscordAPIError,
   Events,
   GatewayIntentBits,
   type GuildMember,
@@ -74,6 +75,23 @@ async function reply(i: ChatInputCommandInteraction, content: string, ephemeral 
     return;
   }
   await i.reply(ephemeral ? { content, flags: MessageFlags.Ephemeral } : { content });
+}
+
+async function safeReply(i: ChatInputCommandInteraction, content: string, ephemeral = false): Promise<void> {
+  try {
+    await reply(i, content, ephemeral);
+  } catch (err) {
+    if (err instanceof DiscordAPIError && err.code === 10062) {
+      console.warn("Discarded late interaction reply:", content);
+      return;
+    }
+    throw err;
+  }
+}
+
+async function ensureDeferred(i: ChatInputCommandInteraction, ephemeral = false): Promise<void> {
+  if (i.deferred || i.replied) return;
+  await i.deferReply(ephemeral ? { flags: MessageFlags.Ephemeral } : undefined);
 }
 
 /**
@@ -245,9 +263,13 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
   const user = { id: i.user.id, username: i.user.username };
 
   try {
+    if (sub === "doctor" || sub === "start" || sub === "stop" || sub === "export") {
+      await ensureDeferred(i, sub === "doctor");
+    }
+
     switch (sub) {
       case "doctor":
-        await reply(i, "```\n" + (await doctorSummary(i)) + "\n```", true);
+        await safeReply(i, "```\n" + (await doctorSummary(i)) + "\n```", true);
         return;
       case "start": {
         const title = i.options.getString("title")?.trim() || "Discord Meeting";
@@ -257,23 +279,22 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
           { guildId, channelId: selection.channelId ?? i.channelId, startedBy: user },
           selection.recorder
         );
-        await reply(i, announce + selection.warning);
+        await safeReply(i, announce + selection.warning);
         return;
       }
       case "consent":
-        await reply(i, mgr.consent(user), true);
+        await safeReply(i, mgr.consent(user), true);
         return;
       case "pause":
-        await reply(i, await mgr.pause());
+        await safeReply(i, await mgr.pause());
         return;
       case "resume":
-        await reply(i, await mgr.resume());
+        await safeReply(i, await mgr.resume());
         return;
       case "status":
-        await reply(i, "```\n" + mgr.status() + "\n```", true);
+        await safeReply(i, "```\n" + mgr.status() + "\n```", true);
         return;
       case "stop": {
-        await i.deferReply();
         let session;
         try {
           session = await mgr.stop();
@@ -300,7 +321,7 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
         const format = i.options.getString("format") ?? "markdown";
         const paths = mgr.currentPaths();
         if (!paths) {
-          await reply(i, "No session to export yet.", true);
+          await safeReply(i, "No session to export yet.", true);
           return;
         }
         const file =
@@ -312,17 +333,21 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
                 ? paths.srt
                 : paths.markdown;
         if (!fs.existsSync(file)) {
-          await reply(i, `Nothing exported yet — run \`/resound stop\` first.`, true);
+          await safeReply(i, `Nothing exported yet — run \`/resound stop\` first.`, true);
           return;
         }
-        await i.reply({ content: `📄 \`${file}\``, files: [file] });
+        if (i.deferred) {
+          await i.editReply({ content: `📄 \`${file}\``, files: [file] });
+        } else {
+          await i.reply({ content: `📄 \`${file}\``, files: [file] });
+        }
         return;
       }
       default:
-        await reply(i, `Unknown subcommand: ${sub}`, true);
+        await safeReply(i, `Unknown subcommand: ${sub}`, true);
     }
   } catch (err) {
-    await reply(i, `⚠️ ${(err as Error).message}`, true);
+    await safeReply(i, `⚠️ ${(err as Error).message}`, true);
   }
 }
 
@@ -346,7 +371,11 @@ function main(): void {
   client.on(Events.InteractionCreate, async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
     if (interaction.commandName !== "resound") return;
-    await handle(interaction);
+    try {
+      await handle(interaction);
+    } catch (err) {
+      console.error("Unhandled resound interaction error:", err);
+    }
   });
 
   void client.login(token);
