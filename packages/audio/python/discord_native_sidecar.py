@@ -220,9 +220,14 @@ def create_timeline_sink(session_dir: Path) -> Any:
     import discord  # type: ignore
 
     class TimelineSink(discord.sinks.Sink, TimelineSinkBase):  # type: ignore[misc]
+        __sink_listeners__: list[tuple[str, str]] = []
+
         def __init__(self) -> None:
             discord.sinks.Sink.__init__(self)
             TimelineSinkBase.__init__(self, session_dir)
+
+        def walk_children(self) -> list[Any]:
+            return []
 
         def cleanup(self) -> None:
             TimelineSinkBase.cleanup(self)
