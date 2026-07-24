@@ -306,8 +306,10 @@ async def run_recording(args: argparse.Namespace) -> int:
         await client.close()
         stop_event.set()
 
-    def after_callback(exc: Exception | None) -> None:
-        asyncio.run_coroutine_threadsafe(finalize(exc), loop)
+    # The pinned DAVE receive build invokes the completion callback with the
+    # sink (and any extra callback arguments), not an exception.
+    def after_callback(_sink: Any, *_args: Any) -> None:
+        asyncio.run_coroutine_threadsafe(finalize(None), loop)
 
     @client.event
     async def on_ready() -> None:
@@ -328,7 +330,9 @@ async def run_recording(args: argparse.Namespace) -> int:
         try:
             vc = await channel.connect()
             state["vc"] = vc
-            vc.start_recording(sink, after_callback)
+            # Pass a callback argument so Pycord schedules the completion
+            # callback after its receive workers have stopped.
+            vc.start_recording(sink, after_callback, None)
             emit("ready", dave=bool(getattr(vc, "is_dave_connection", lambda: False)()))
         except Exception as exc:
             emit("error", message=f"Failed to connect or start recording: {exc}")
