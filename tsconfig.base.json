@@ -4,6 +4,15 @@
     "lib": ["ES2022"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@resound/core": ["packages/core/src/index.ts"],
+      "@resound/audio": ["packages/audio/src/index.ts"],
+      "@resound/transcribers": ["packages/transcribers/src/index.ts"],
+      "@resound/exporters": ["packages/exporters/src/index.ts"],
+      "@resound/sinks": ["packages/sinks/src/index.ts"],
+      "@resound/kujo": ["packages/kujo/src/index.ts"]
+    },
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,

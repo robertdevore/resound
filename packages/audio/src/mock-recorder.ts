@@ -1,7 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { sessionPaths } from "@resound/core";
-import type { AudioChunk, Recorder, RecorderStartOptions } from "./types.js";
+import type {
+  AudioChunk,
+  Recorder,
+  RecorderCapabilities,
+  RecorderPreflightResult,
+  RecorderStartOptions
+} from "./types.js";
 
 export interface MockRecorderOptions {
   participants?: { id: string; username: string }[];
@@ -13,10 +19,36 @@ export interface MockRecorderOptions {
  * file standing in for an Opus/WAV segment.
  */
 export class MockRecorder implements Recorder {
+  readonly id = "mock-recorder";
   readonly mode = "mock" as const;
+  readonly capabilities: RecorderCapabilities = {
+    mixedAudio: true,
+    separateSpeakerTracks: true,
+    reliableSpeakerIdentity: true,
+    liveParticipantEvents: true,
+    pauseResume: false,
+    localOnly: true,
+    reconnectSupport: true,
+    healthMetrics: false,
+    strictConsentCompatible: true,
+    supportedPlatforms: ["darwin", "linux", "win32"]
+  };
   private chunks: AudioChunk[] = [];
 
   constructor(private readonly options: MockRecorderOptions = {}) {}
+
+  async preflight(): Promise<RecorderPreflightResult> {
+    return {
+      status: "pass",
+      recorderId: this.id,
+      mode: this.mode,
+      summary: "Mock recorder is ready.",
+      dependencies: [],
+      warnings: [],
+      errors: [],
+      remediation: []
+    };
+  }
 
   async start(options: RecorderStartOptions): Promise<void> {
     const paths = sessionPaths(options.sessionDir);

@@ -15,7 +15,8 @@ import {
   type ChatInputCommandInteraction
 } from "discord.js";
 import { sessionPaths } from "@resound/core";
-import { DiscordRecorder, SystemRecorder, type Recorder } from "@resound/audio";
+import { DiscordRecorder, MockRecorder, SystemRecorder, type Recorder } from "@resound/audio";
+import { getTranscriber } from "@resound/transcribers";
 import { SessionManager } from "./session-manager.js";
 
 /**
@@ -33,9 +34,10 @@ import { SessionManager } from "./session-manager.js";
  *    record the call and run `resound transcribe <file>`.
  */
 
-const BOT_MODE = process.env.RESOUND_BOT_MODE ?? "mock";
-const DISCORD_MODE = BOT_MODE === "discord";
+const BOT_MODE = (process.env.RESOUND_BOT_MODE ?? "mock").trim();
+const DISCORD_MODE = BOT_MODE === "discord" || BOT_MODE === "discord-native";
 const LOCAL_CAPTURE_MODE = BOT_MODE === "local-capture";
+const AUTO_MODE = BOT_MODE === "auto";
 
 // Live voice connections per guild, so we can leave on stop.
 const connections = new Map<string, { destroy(): void }>();
@@ -127,6 +129,80 @@ function buildLocalCaptureRecorder(): Recorder {
   });
 }
 
+function buildMockRecorder(): Recorder {
+  return new MockRecorder();
+}
+
+async function selectRecorder(
+  i: ChatInputCommandInteraction
+): Promise<{ recorder: Recorder; channelId: string; warning: string }> {
+  if (DISCORD_MODE) {
+    const built = await buildLiveRecorder(i);
+    if (built.recorder) {
+      return { recorder: built.recorder, channelId: built.channelId || i.channelId, warning: built.warning };
+    }
+    throw new Error(built.warning.replace(/^\n/, ""));
+  }
+
+  if (LOCAL_CAPTURE_MODE) {
+    return {
+      recorder: buildLocalCaptureRecorder(),
+      channelId: i.channelId,
+      warning:
+        "\n🎙️ Local capture mode is recording this operator machine's configured audio devices. " +
+        "Use `RESOUND_AUDIO_SYSTEM_DEVICE` / `RESOUND_AUDIO_MIC_DEVICE` or `RESOUND_AUDIO_DEVICE` to choose inputs."
+    };
+  }
+
+  if (AUTO_MODE) {
+    const discord = await buildLiveRecorder(i);
+    if (discord.recorder && (await discord.recorder.preflight?.({ sessionDir: ".", outputDir: process.cwd() }))?.status !== "fail") {
+      return { recorder: discord.recorder, channelId: discord.channelId || i.channelId, warning: discord.warning };
+    }
+    const local = buildLocalCaptureRecorder();
+    const localPreflight = await local.preflight?.({ sessionDir: ".", outputDir: process.cwd() });
+    if (localPreflight?.status !== "fail") {
+      return {
+        recorder: local,
+        channelId: i.channelId,
+        warning:
+          "\n⚠️ Auto mode fell back to local-capture after Discord-native preflight did not pass."
+      };
+    }
+    throw new Error(
+      "Auto mode could not verify Discord-native or local-capture. Recording did not start."
+    );
+  }
+
+  return { recorder: buildMockRecorder(), channelId: i.channelId, warning: "" };
+}
+
+async function doctorSummary(i: ChatInputCommandInteraction): Promise<string> {
+  const recorderSelection = await selectRecorder(i);
+  const recorderResult = await recorderSelection.recorder.preflight?.({
+    sessionDir: ".",
+    outputDir: process.cwd()
+  });
+  const transcriber = getTranscriber({
+    env: BOT_MODE === "mock" ? { ...process.env, RESOUND_TRANSCRIBER: "mock" } as NodeJS.ProcessEnv : process.env
+  });
+  const transcriberResult = await transcriber.preflight?.();
+  return [
+    `Requested mode: ${BOT_MODE}`,
+    `Selected recorder: ${recorderSelection.recorder.mode}`,
+    recorderResult
+      ? `Recorder: ${recorderResult.status.toUpperCase()} — ${recorderResult.summary}`
+      : "Recorder: no preflight available",
+    ...(recorderResult?.warnings ?? []).map((line: string) => `  warn: ${line}`),
+    ...(recorderResult?.errors ?? []).map((line: string) => `  err: ${line}`),
+    transcriberResult
+      ? `Transcriber: ${transcriberResult.status.toUpperCase()} — ${transcriberResult.provider} ${transcriberResult.model}`
+      : "Transcriber: no preflight available",
+    ...(transcriberResult?.warnings ?? []).map((line: string) => `  warn: ${line}`),
+    ...(transcriberResult?.errors ?? []).map((line: string) => `  err: ${line}`)
+  ].join("\n");
+}
+
 async function handle(i: ChatInputCommandInteraction): Promise<void> {
   const guildId = i.guildId ?? "dm";
   const mgr = managerFor(guildId);
@@ -135,26 +211,18 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
 
   try {
     switch (sub) {
+      case "doctor":
+        await reply(i, "```\n" + (await doctorSummary(i)) + "\n```", true);
+        return;
       case "start": {
         const title = i.options.getString("title")?.trim() || "Discord Meeting";
-        let recorder: Recorder | undefined;
-        let channelId = i.channelId ?? "";
-        let voiceWarning = "";
-
-        if (DISCORD_MODE) {
-          const built = await buildLiveRecorder(i);
-          recorder = built.recorder;
-          channelId = built.channelId || channelId;
-          voiceWarning = built.warning;
-        } else if (LOCAL_CAPTURE_MODE) {
-          recorder = buildLocalCaptureRecorder();
-          voiceWarning =
-            "\n🎙️ Local capture mode is recording this operator machine's configured audio devices. " +
-            "Use `RESOUND_AUDIO_SYSTEM_DEVICE` / `RESOUND_AUDIO_MIC_DEVICE` or `RESOUND_AUDIO_DEVICE` to choose inputs.";
-        }
-
-        const { announce } = await mgr.start(title, { guildId, channelId, startedBy: user }, recorder);
-        await reply(i, announce + voiceWarning);
+        const selection = await selectRecorder(i);
+        const { announce } = await mgr.start(
+          title,
+          { guildId, channelId: selection.channelId ?? i.channelId, startedBy: user },
+          selection.recorder
+        );
+        await reply(i, announce + selection.warning);
         return;
       }
       case "consent":

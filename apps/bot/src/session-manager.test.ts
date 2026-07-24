@@ -80,7 +80,18 @@ describe("SessionManager (mock mode)", () => {
       RESOUND_TRANSCRIBER: "mock"
     } as NodeJS.ProcessEnv;
     const recorder: Recorder = {
-      mode: "system",
+      capabilities: {
+        mixedAudio: true,
+        separateSpeakerTracks: false,
+        reliableSpeakerIdentity: false,
+        liveParticipantEvents: false,
+        pauseResume: false,
+        localOnly: true,
+        reconnectSupport: false,
+        healthMetrics: false,
+        strictConsentCompatible: false
+      },
+      mode: "local-capture",
       async start() {},
       async stop() {
         return [
@@ -117,7 +128,18 @@ describe("SessionManager (mock mode)", () => {
   it("pauses and resumes the underlying recorder", async () => {
     const calls: string[] = [];
     const recorder: Recorder = {
-      mode: "system",
+      capabilities: {
+        mixedAudio: true,
+        separateSpeakerTracks: false,
+        reliableSpeakerIdentity: false,
+        liveParticipantEvents: false,
+        pauseResume: true,
+        localOnly: true,
+        reconnectSupport: false,
+        healthMetrics: false,
+        strictConsentCompatible: false
+      },
+      mode: "local-capture",
       async start() {},
       pause() { calls.push("pause"); },
       resume() { calls.push("resume"); },

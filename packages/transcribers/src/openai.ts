@@ -1,6 +1,11 @@
 import fs from "node:fs";
 import { formatTimestamp, type TranscriptSegment } from "@resound/core";
-import type { Transcriber, TranscriptionInput } from "./types.js";
+import type {
+  Transcriber,
+  TranscriptionInput,
+  TranscriberCapabilities,
+  TranscriberPreflightResult
+} from "./types.js";
 
 interface VerboseSegment {
   start: number;
@@ -33,6 +38,18 @@ export interface OpenAICompatibleOptions {
 export class OpenAICompatibleTranscriber implements Transcriber {
   readonly provider: string = "openai-compatible";
   readonly model: string;
+  readonly capabilities: TranscriberCapabilities = {
+    local: false,
+    remote: true,
+    segmentTimestamps: true,
+    speakerAware: false,
+    wordTimestamps: false,
+    contextualPrompting: false,
+    confidence: true,
+    retrySafe: false,
+    maxInputSize: "Provider-defined upload limits",
+    privacy: "remote-optional"
+  };
   private readonly apiKey: string;
   private readonly baseUrl: string;
 
@@ -44,6 +61,34 @@ export class OpenAICompatibleTranscriber implements Transcriber {
 
   get endpoint(): string {
     return `${this.baseUrl}/audio/transcriptions`;
+  }
+
+  async preflight(): Promise<TranscriberPreflightResult> {
+    const warnings: string[] = [];
+    const errors: string[] = [];
+    if (!this.apiKey) errors.push("No API key configured.");
+    if (!/^https?:\/\//.test(this.baseUrl)) {
+      errors.push(`Base URL must be absolute: ${this.baseUrl}`);
+    }
+    if (this.provider === "openai-compatible") {
+      warnings.push("Remote transcription sends meeting audio to the configured provider endpoint.");
+    }
+    return {
+      status: errors.length > 0 ? "fail" : warnings.length > 0 ? "warning" : "pass",
+      provider: this.provider,
+      model: this.model,
+      summary:
+        errors.length > 0
+          ? "Remote transcription preflight failed."
+          : warnings.length > 0
+            ? "Remote transcription preflight passed with warnings."
+            : "Remote transcription preflight passed.",
+      warnings,
+      errors,
+      remediation: errors.length > 0
+        ? ["Set the API key and base URL for the configured provider before recording."]
+        : []
+    };
   }
 
   async transcribe(input: TranscriptionInput): Promise<TranscriptSegment[]> {

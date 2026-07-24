@@ -6,9 +6,28 @@
  * consume it. Nothing here depends on Discord or any transcription vendor.
  */
 
-export const SCHEMA_VERSION = "1.0.0";
+export const SCHEMA_VERSION = "1.1.0";
 
 export type SessionSource = "discord" | "file" | "mock" | (string & {});
+export type CaptureMode = "mock" | "local-capture" | "discord-native";
+export type RequestedCaptureMode = CaptureMode | "auto";
+export type SessionStatus =
+  | "created"
+  | "announced"
+  | "preflighting"
+  | "awaiting-consent"
+  | "recording"
+  | "recording-degraded"
+  | "audio-finalizing"
+  | "audio-finalized"
+  | "transcribing"
+  | "transcribed"
+  | "exporting"
+  | "exported"
+  | "completed"
+  | "failed"
+  | "aborted"
+  | "recoverable";
 
 /**
  * A consent event is an auditable record that recording/transcription was
@@ -43,6 +62,7 @@ export interface Participant {
 export interface TranscriberInfo {
   provider: string;
   model: string;
+  profile?: string;
 }
 
 export interface SessionOutputs {
@@ -59,6 +79,18 @@ export interface StartedBy {
   username: string;
 }
 
+export interface SessionRecorderInfo {
+  id: string;
+  mode: CaptureMode;
+}
+
+export interface SessionAudioFiles {
+  mixed?: string;
+  system?: string;
+  microphone?: string;
+  chunks_dir?: string;
+}
+
 export interface SessionManifest {
   schema_version: string;
   session_id: string;
@@ -70,11 +102,19 @@ export interface SessionManifest {
   started_at: string;
   /** ISO-8601. Empty string while a session is in progress. */
   ended_at: string;
+  status: SessionStatus;
   started_by: StartedBy;
+  requested_capture_mode: RequestedCaptureMode;
+  selected_capture_mode: CaptureMode | "";
+  fallback_reason?: string;
+  recorder: SessionRecorderInfo;
   participants: Participant[];
   consent_events: ConsentEvent[];
+  audio_files: SessionAudioFiles;
+  audio_health: string[];
   outputs: SessionOutputs;
   transcriber: TranscriberInfo;
+  warnings: string[];
 }
 
 /**

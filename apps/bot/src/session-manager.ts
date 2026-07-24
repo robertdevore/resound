@@ -6,6 +6,7 @@ import {
   outputRoot,
   recordConsentEvent,
   sessionPaths,
+  writeManifest,
   type SessionManifest,
   type TranscriptSession
 } from "@resound/core";
@@ -19,7 +20,27 @@ export interface SessionContext {
   startedBy: { id: string; username: string };
 }
 
-export type SessionState = "recording" | "paused" | "stopped";
+function normalizeRecorderMode(mode: string | undefined): "mock" | "local-capture" | "discord-native" {
+  if (mode === "discord" || mode === "discord-native") return "discord-native";
+  if (mode === "system" || mode === "local-capture") return "local-capture";
+  return "mock";
+}
+
+function isPromiseLike<T>(value: T | PromiseLike<T>): value is PromiseLike<T> {
+  return typeof (value as PromiseLike<T> | undefined)?.then === "function";
+}
+
+export type SessionState =
+  | "idle"
+  | "preflighting"
+  | "awaiting-consent"
+  | "recording"
+  | "paused"
+  | "audio-finalizing"
+  | "transcribing"
+  | "exporting"
+  | "completed"
+  | "failed";
 
 /**
  * Holds the active session for a guild and drives the pipeline. Deliberately
@@ -30,10 +51,10 @@ export type SessionState = "recording" | "paused" | "stopped";
 export class SessionManager {
   private manifest?: SessionManifest;
   private dir?: string;
-  private state: SessionState = "stopped";
+  private state: SessionState = "idle";
   private recorder?: Recorder;
   private lastCaptureReport: string[] = [];
-  private readonly mode: "mock" | "discord" | "local-capture";
+  private readonly mode: "mock" | "discord-native" | "local-capture" | "auto";
   private readonly makeTranscriber: () => Transcriber;
 
   constructor(
@@ -45,8 +66,10 @@ export class SessionManager {
   ) {
     const configuredMode = env.RESOUND_BOT_MODE ?? "mock";
     this.mode =
-      configuredMode === "discord"
-        ? "discord"
+      configuredMode === "discord" || configuredMode === "discord-native"
+        ? "discord-native"
+        : configuredMode === "auto"
+          ? "auto"
         : configuredMode === "local-capture"
           ? "local-capture"
           : "mock";
@@ -59,7 +82,17 @@ export class SessionManager {
   }
 
   get active(): boolean {
-    return this.state !== "stopped";
+    return this.state !== "idle" && this.state !== "completed" && this.state !== "failed";
+  }
+
+  private persist(): void {
+    if (this.dir && this.manifest) writeManifest(this.dir, this.manifest);
+  }
+
+  private transition(state: SessionState, manifestStatus: SessionManifest["status"]): void {
+    this.state = state;
+    if (this.manifest) this.manifest.status = manifestStatus;
+    this.persist();
   }
 
   async start(
@@ -70,14 +103,19 @@ export class SessionManager {
     if (this.active) throw new Error("A session is already in progress. Use /resound stop first.");
 
     const transcriber = this.makeTranscriber();
+    const requestedMode = this.mode === "auto" ? "auto" : this.mode;
     const at = new Date();
+    const selectedMode = normalizeRecorderMode(recorderOverride?.mode ?? this.makeRecorder([ctx.startedBy]).mode);
     this.manifest = createManifest({
       title,
       source: "discord",
+      requestedCaptureMode: requestedMode,
+      selectedCaptureMode: selectedMode,
       guildId: ctx.guildId,
       channelId: ctx.channelId,
       startedBy: ctx.startedBy,
       startedAt: at,
+      recorderId: recorderOverride?.id ?? normalizeRecorderMode(recorderOverride?.mode),
       transcriberProvider: transcriber.provider,
       transcriberModel: transcriber.model
     });
@@ -85,6 +123,7 @@ export class SessionManager {
       outputRoot(this.env),
       buildSessionFolder({ title, source: "discord", at })
     );
+    this.transition("preflighting", "preflighting");
 
     recordConsentEvent(this.manifest, {
       type: "recording-announced",
@@ -95,9 +134,29 @@ export class SessionManager {
     addParticipant(this.manifest, ctx.startedBy);
 
     this.recorder = recorderOverride ?? this.makeRecorder([ctx.startedBy]);
+    this.manifest.recorder = {
+      id: this.recorder.id ?? normalizeRecorderMode(this.recorder.mode),
+      mode: normalizeRecorderMode(this.recorder.mode)
+    };
+    const preflight = await this.recorder.preflight?.({
+      sessionDir: this.dir,
+      outputDir: outputRoot(this.env)
+    });
+    if (preflight?.warnings.length) this.manifest.warnings.push(...preflight.warnings);
+    if (preflight?.status === "fail") {
+      this.transition("failed", "failed");
+      throw new Error(preflight.errors[0] ?? "Recorder preflight failed.");
+    }
+    const transcriberPreflight = await transcriber.preflight?.();
+    if (transcriberPreflight?.warnings.length) this.manifest.warnings.push(...transcriberPreflight.warnings);
+    if (transcriberPreflight?.status === "fail") {
+      this.transition("failed", "failed");
+      throw new Error(transcriberPreflight.errors[0] ?? "Transcriber preflight failed.");
+    }
+
     await this.recorder.start({ sessionDir: this.dir });
     this.lastCaptureReport = [];
-    this.state = "recording";
+    this.transition("recording", "recording");
 
     return {
       dir: this.dir,
@@ -130,25 +189,29 @@ export class SessionManager {
   async pause(): Promise<string> {
     if (this.state !== "recording") throw new Error("Nothing is recording.");
     await this.recorder?.pause?.();
-    this.state = "paused";
+    this.transition("paused", "recording-degraded");
     return "⏸️ Recording paused.";
   }
 
   async resume(): Promise<string> {
     if (this.state !== "paused") throw new Error("Session is not paused.");
     await this.recorder?.resume?.();
-    this.state = "recording";
+    this.transition("recording", "recording");
     return "▶️ Recording resumed.";
   }
 
   status(): string {
     if (!this.manifest) return "No active session.";
+    const health = this.recorder?.getHealth?.();
+    const healthSummary = health && !isPromiseLike(health) ? health.summary : undefined;
     return [
       `Title: ${this.manifest.title}`,
       `State: ${this.state}`,
-      `Mode: ${this.mode}`,
+      `Manifest status: ${this.manifest.status}`,
+      `Mode: ${this.manifest.selected_capture_mode || this.mode}`,
       `Participants: ${this.manifest.participants.map((p) => p.username).join(", ") || "—"}`,
-      `Consent events: ${this.manifest.consent_events.length}`
+      `Consent events: ${this.manifest.consent_events.length}`,
+      ...(healthSummary ? [`Health: ${healthSummary}`] : [])
     ].join("\n");
   }
 
@@ -156,14 +219,24 @@ export class SessionManager {
   async stop(): Promise<TranscriptSession> {
     if (!this.manifest || !this.dir || !this.recorder) throw new Error("No active session.");
     const recorder = this.recorder;
+    this.transition("audio-finalizing", "audio-finalizing");
     const chunks = await recorder.stop();
-    this.state = "stopped";
     this.recorder = undefined;
     this.lastCaptureReport = (await recorder.captureSummary?.()) ?? [];
+    this.manifest.audio_health = [...this.lastCaptureReport];
+    const paths = sessionPaths(this.dir, this.manifest);
+    this.manifest.audio_files = {
+      mixed: chunks[0]?.path,
+      system: this.lastCaptureReport.some((line) => line.includes("meeting/system audio")) ? path.join(paths.audioRaw, "system.wav") : undefined,
+      microphone: this.lastCaptureReport.some((line) => line.includes("local microphone")) ? path.join(paths.audioRaw, "microphone.wav") : undefined,
+      chunks_dir: path.join(paths.audioChunks)
+    };
     if (this.mode !== "mock" && chunks.length === 0) {
+      this.transition("failed", "failed");
       throw new Error("No audio was captured. Check the configured devices and audio routing, then try again.");
     }
     const transcriber = this.makeTranscriber();
+    this.transition("transcribing", "transcribing");
     const segments = await transcriber.transcribe({
       sessionDir: this.dir,
       participants: this.manifest.participants,
@@ -172,6 +245,7 @@ export class SessionManager {
     });
 
     this.manifest.ended_at = new Date().toISOString();
+    this.manifest.status = "transcribed";
     recordConsentEvent(this.manifest, {
       type: "recording-stopped",
       user_id: this.manifest.started_by.id,
@@ -180,7 +254,9 @@ export class SessionManager {
     });
 
     const session: TranscriptSession = { manifest: this.manifest, segments, dir: this.dir };
+    this.transition("exporting", "exporting");
     writeSessionOutputs(session);
+    this.transition("completed", "completed");
 
     return session;
   }

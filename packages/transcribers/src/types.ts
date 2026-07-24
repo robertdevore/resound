@@ -17,9 +17,34 @@ export interface TranscriptionInput {
   mock?: boolean;
 }
 
+export interface TranscriberCapabilities {
+  local: boolean;
+  remote: boolean;
+  segmentTimestamps: boolean;
+  speakerAware: boolean;
+  wordTimestamps: boolean;
+  contextualPrompting: boolean;
+  confidence: boolean;
+  retrySafe: boolean;
+  maxInputSize?: string;
+  privacy: "local-only" | "remote-optional" | "remote-required";
+}
+
+export interface TranscriberPreflightResult {
+  status: "pass" | "warning" | "fail";
+  provider: string;
+  model: string;
+  summary: string;
+  warnings: string[];
+  errors: string[];
+  remediation: string[];
+}
+
 export interface Transcriber {
   readonly provider: string;
   readonly model: string;
+  readonly capabilities: TranscriberCapabilities;
+  preflight?(input?: TranscriptionInput): Promise<TranscriberPreflightResult>;
   transcribe(input: TranscriptionInput): Promise<TranscriptSegment[]>;
 }
 

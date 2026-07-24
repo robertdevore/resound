@@ -34,6 +34,8 @@ import {
   type Sink
 } from "@resound/sinks";
 import { runChecks } from "@resound/kujo";
+import { type Recorder, MockRecorder, SystemRecorder, DiscordRecorder } from "@resound/audio";
+import { getTranscriber } from "@resound/transcribers";
 import os from "node:os";
 import { createFileSession, createMockSession, parseParticipants } from "./session-runner.js";
 import { isInteractiveStopInput, listAudioDevices, recordAudio } from "./record.js";
@@ -46,6 +48,126 @@ program
 
 function root(): string {
   return outputRoot(process.env);
+}
+
+type CliRecorderMode = "mock" | "local-capture" | "discord-native" | "auto";
+type DoctorRecorder = Recorder & {
+  preflight?: (context: {
+    sessionDir: string;
+    outputDir?: string;
+    strictConsent?: boolean;
+  }) => Promise<{
+    status: "pass" | "warning" | "fail";
+    summary: string;
+    dependencies: Array<{ name: string; ok: boolean; detail: string }>;
+    warnings: string[];
+    errors: string[];
+    remediation: string[];
+  }>;
+};
+type DoctorTranscriber = ReturnType<typeof getTranscriber> & {
+  preflight?: () => Promise<{
+    status: "pass" | "warning" | "fail";
+    provider: string;
+    model: string;
+    warnings: string[];
+    errors: string[];
+    remediation: string[];
+  }>;
+};
+
+function normalizeRecorderMode(input?: string): CliRecorderMode {
+  switch ((input ?? process.env.RESOUND_BOT_MODE ?? "local-capture").trim()) {
+    case "mock":
+      return "mock";
+    case "discord":
+    case "discord-native":
+      return "discord-native";
+    case "auto":
+      return "auto";
+    default:
+      return "local-capture";
+  }
+}
+
+function buildDoctorRecorder(mode: Exclude<CliRecorderMode, "auto">, opts: {
+  system?: string;
+  mic?: string;
+  device?: string;
+}): DoctorRecorder {
+  if (mode === "mock") return new MockRecorder();
+  if (mode === "discord-native") {
+    return new DiscordRecorder({
+      connection: {
+        receiver: {
+          speaking: { on() {} },
+          subscribe() {
+            throw new Error("not connected");
+          }
+        }
+      }
+    });
+  }
+  return new SystemRecorder({
+    systemDevice: opts.system,
+    micDevice: opts.mic,
+    device: opts.device
+  });
+}
+
+async function runDoctor(opts: {
+  mode?: string;
+  system?: string;
+  mic?: string;
+  device?: string;
+  provider?: string;
+  strictConsent?: boolean;
+}): Promise<number> {
+  const requested = normalizeRecorderMode(opts.mode);
+  const transcriber = getTranscriber({ name: opts.provider, env: process.env }) as DoctorTranscriber;
+  const modes: Exclude<CliRecorderMode, "auto">[] =
+    requested === "auto" ? ["discord-native", "local-capture"] : [requested];
+  const outputDir = root();
+  const results = [];
+
+  for (const mode of modes) {
+    const recorder = buildDoctorRecorder(mode, opts);
+    const recorderResult = await recorder.preflight?.({
+      sessionDir: path.join(outputDir, "_doctor"),
+      outputDir,
+      strictConsent: opts.strictConsent
+    });
+    results.push({ mode, recorder, recorderResult });
+    if (requested !== "auto") break;
+    if (recorderResult?.status === "pass") break;
+  }
+
+  const chosen = results.find((result) => result.recorderResult?.status !== "fail") ?? results[0]!;
+  const transcriberResult = await transcriber.preflight?.();
+  console.log(`Recorder request: ${requested}`);
+  console.log(`Recorder selected: ${chosen.mode}`);
+  if (chosen.recorderResult) {
+    console.log(`Recorder preflight: ${chosen.recorderResult.status.toUpperCase()} — ${chosen.recorderResult.summary}`);
+    for (const dep of chosen.recorderResult.dependencies) {
+      console.log(`  [${dep.ok ? "ok" : "fail"}] ${dep.name}: ${dep.detail}`);
+    }
+    for (const warning of chosen.recorderResult.warnings) console.log(`  warn: ${warning}`);
+    for (const error of chosen.recorderResult.errors) console.log(`  err:  ${error}`);
+    for (const step of chosen.recorderResult.remediation) console.log(`  fix:  ${step}`);
+  }
+
+  if (transcriberResult) {
+    console.log(
+      `Transcriber preflight: ${transcriberResult.status.toUpperCase()} — ${transcriberResult.provider} ${transcriberResult.model}`
+    );
+    for (const warning of transcriberResult.warnings) console.log(`  warn: ${warning}`);
+    for (const error of transcriberResult.errors) console.log(`  err:  ${error}`);
+    for (const step of transcriberResult.remediation) console.log(`  fix:  ${step}`);
+  }
+
+  const ok = chosen.recorderResult?.status !== "fail" && transcriberResult?.status !== "fail";
+  console.log(ok ? "\n✓ doctor passed" : "\n✗ doctor failed");
+  return ok ? 0 : 1;
 }
 
 function mustResolve(ref: string): string {
@@ -271,20 +393,47 @@ program
   );
 
 program
+  .command("doctor")
+  .description("Run recorder and transcriber preflight checks")
+  .option("-m, --mode <mode>", "mock | local-capture | discord-native | auto", process.env.RESOUND_BOT_MODE ?? "auto")
+  .option("--system <device>", "avfoundation system/call audio device")
+  .option("--mic <device>", "avfoundation microphone device")
+  .option("--device <device>", "single local input device")
+  .option("-p, --provider <provider>", "override RESOUND_TRANSCRIBER")
+  .option("--strict-consent", "treat strict per-participant consent as required", false)
+  .action(async (opts: {
+    mode?: string;
+    system?: string;
+    mic?: string;
+    device?: string;
+    provider?: string;
+    strictConsent?: boolean;
+  }) => {
+    process.exit(await runDoctor(opts));
+  });
+
+const audio = program.command("audio").description("Audio device inspection and local capture helpers");
+
+function printDevices(): void {
+  const devices = listAudioDevices();
+  if (devices.length === 0) {
+    console.log("No audio devices found (is ffmpeg installed? `brew install ffmpeg`).");
+    return;
+  }
+  console.log("Audio input devices (use the index or exact name with `resound record`):");
+  for (const d of devices) console.log(`  [${d.index}] ${d.name}`);
+  console.log("\nTip: capture the call output device (for example BlackHole) with --system and your mic with --mic.");
+}
+
+audio
+  .command("devices")
+  .description("List macOS audio input devices (ffmpeg/avfoundation)")
+  .action(printDevices);
+
+program
   .command("devices")
   .description("List macOS audio input devices (ffmpeg/avfoundation) for `resound record`")
-  .action(() => {
-    const devices = listAudioDevices();
-    if (devices.length === 0) {
-      console.log("No audio devices found (is ffmpeg installed? `brew install ffmpeg`).");
-      return;
-    }
-    console.log("Audio input devices (use the index with `resound record`):");
-    for (const d of devices) console.log(`  [${d.index}] ${d.name}`);
-    console.log(
-      "\nTip: capture the call output device (e.g. BlackHole) with --system and your mic with --mic."
-    );
-  });
+  .action(printDevices);
 
 program
   .command("record")
@@ -297,6 +446,7 @@ program
   .option("-p, --provider <provider>", "override RESOUND_TRANSCRIBER (e.g. local-whisper)")
   .option("--participants <csv>", "comma-separated participant names")
   .option("-l, --language <lang>", "language hint, e.g. en")
+  .option("--preflight", "run preflight only; do not start recording", false)
   .action(
     async (opts: {
       title: string;
@@ -307,10 +457,22 @@ program
       provider?: string;
       participants?: string;
       language?: string;
+      preflight?: boolean;
     }) => {
+      if (opts.preflight) {
+        process.exit(
+          await runDoctor({
+            mode: "local-capture",
+            system: opts.system,
+            mic: opts.mic,
+            device: opts.device,
+            provider: opts.provider
+          })
+        );
+      }
       if (!opts.system && !opts.mic && !opts.device) {
         console.error(
-          "No capture device given. Run `resound devices`, then pass --system <idx> and/or --mic <idx> (or --device <idx>)."
+          "No capture device given. Run `resound audio devices`, then pass --system <idx> and/or --mic <idx> (or --device <idx>)."
         );
         process.exit(1);
       }

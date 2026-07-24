@@ -1,5 +1,5 @@
 import { formatTimestamp, type TranscriptSegment } from "@resound/core";
-import type { Transcriber, TranscriptionInput } from "./types.js";
+import type { Transcriber, TranscriptionInput, TranscriberCapabilities, TranscriberPreflightResult } from "./types.js";
 
 const SCRIPT = [
   "Let's review blockers first.",
@@ -18,6 +18,29 @@ const SCRIPT = [
 export class MockTranscriber implements Transcriber {
   readonly provider = "mock";
   readonly model = "mock-1";
+  readonly capabilities: TranscriberCapabilities = {
+    local: true,
+    remote: false,
+    segmentTimestamps: true,
+    speakerAware: true,
+    wordTimestamps: false,
+    contextualPrompting: false,
+    confidence: true,
+    retrySafe: true,
+    privacy: "local-only"
+  };
+
+  async preflight(): Promise<TranscriberPreflightResult> {
+    return {
+      status: "pass",
+      provider: this.provider,
+      model: this.model,
+      summary: "Mock transcriber is ready.",
+      warnings: [],
+      errors: [],
+      remediation: []
+    };
+  }
 
   async transcribe(input: TranscriptionInput): Promise<TranscriptSegment[]> {
     const speakers =

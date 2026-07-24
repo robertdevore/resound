@@ -1,7 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { sessionPaths } from "@resound/core";
-import type { AudioChunk, Recorder, RecorderStartOptions } from "./types.js";
+import type {
+  AudioChunk,
+  Recorder,
+  RecorderCapabilities,
+  RecorderPreflightResult,
+  RecorderStartOptions,
+  RecordingContext,
+  RecordingHealth
+} from "./types.js";
 import { pcmDurationSeconds, pcmToWav } from "./wav.js";
 
 /**
@@ -40,7 +48,25 @@ export interface DiscordRecorderOptions {
 const FORMAT = { sampleRate: 48000, channels: 2, bitDepth: 16 } as const;
 
 export class DiscordRecorder implements Recorder {
-  readonly mode = "discord" as const;
+  readonly id = "discord-recorder";
+  readonly mode = "discord-native" as const;
+  readonly capabilities: RecorderCapabilities = {
+    mixedAudio: false,
+    separateSpeakerTracks: true,
+    reliableSpeakerIdentity: true,
+    liveParticipantEvents: true,
+    pauseResume: true,
+    localOnly: false,
+    reconnectSupport: false,
+    healthMetrics: true,
+    strictConsentCompatible: true,
+    supportedPlatforms: ["darwin", "linux", "win32"],
+    requiredCommands: [],
+    requiredPermissions: ["Discord Connect/Speak/Use Voice Activity permissions"],
+    warnings: [
+      "Live Discord receive still requires live verification against the installed @discordjs/voice stack."
+    ]
+  };
   private readonly connection: VoiceConnectionLike;
   private readonly resolveUsername: (userId: string) => string;
   private readonly silenceMs: number;
@@ -50,11 +76,45 @@ export class DiscordRecorder implements Recorder {
   private active = new Set<string>();
   private counters = new Map<string, number>();
   private paused = false;
+  private status: RecordingHealth["status"] = "idle";
 
   constructor(opts: DiscordRecorderOptions) {
     this.connection = opts.connection;
     this.resolveUsername = opts.resolveUsername ?? ((id) => id);
     this.silenceMs = opts.silenceMs ?? 1000;
+  }
+
+  async preflight(_context: RecordingContext): Promise<RecorderPreflightResult> {
+    const warnings = [
+      "Discord-native capture requires optional voice receive dependencies and live DAVE verification."
+    ];
+    const errors: string[] = [];
+    try {
+      await loadVoiceDeps();
+    } catch (err) {
+      errors.push((err as Error).message);
+    }
+    return {
+      status: errors.length > 0 ? "fail" : "warning",
+      recorderId: this.id,
+      mode: this.mode,
+      summary:
+        errors.length > 0
+          ? "Discord-native preflight failed."
+          : "Discord-native dependencies are present, but live DAVE receive still requires verification.",
+      dependencies: [
+        {
+          name: "discord-voice-deps",
+          ok: errors.length === 0,
+          detail: errors[0] ?? "Optional voice receive dependencies loaded."
+        }
+      ],
+      warnings,
+      errors,
+      remediation: errors.length > 0
+        ? ["Install @discordjs/voice, prism-media, and an Opus decoder, or use local-capture mode."]
+        : ["Run the live Discord verification checklist before treating this mode as production ready."]
+    };
   }
 
   async start(options: RecorderStartOptions): Promise<void> {
@@ -64,6 +124,7 @@ export class DiscordRecorder implements Recorder {
     this.chunkDir = paths.audioChunks;
     this.startedAt = Date.now();
     this.paused = false;
+    this.status = "recording";
 
     const { EndBehaviorType, opusDecoderStream } = await loadVoiceDeps();
 
@@ -93,10 +154,12 @@ export class DiscordRecorder implements Recorder {
 
   pause(): void {
     this.paused = true;
+    this.status = "paused";
   }
 
   resume(): void {
     this.paused = false;
+    this.status = "recording";
   }
 
   private writeChunk(userId: string, pcm: Buffer, startOffset: number): void {
@@ -116,8 +179,29 @@ export class DiscordRecorder implements Recorder {
 
   async stop(): Promise<AudioChunk[]> {
     // Let any in-flight silence timers flush.
+    this.status = "stopping";
     await new Promise((r) => setTimeout(r, this.silenceMs + 200));
+    this.status = "idle";
     return [...this.chunks].sort((a, b) => a.startSeconds - b.startSeconds);
+  }
+
+  getHealth(): RecordingHealth {
+    return {
+      status: this.status,
+      summary:
+        this.status === "paused"
+          ? "Discord-native capture paused."
+          : this.status === "recording"
+            ? "Discord-native capture running."
+            : this.status === "stopping"
+              ? "Discord-native capture finalizing buffered chunks."
+              : "Discord-native capture idle.",
+      warnings: this.capabilities.warnings ?? [],
+      metrics: {
+        activeSpeakers: this.active.size,
+        chunksWritten: this.chunks.length
+      }
+    };
   }
 }
 

@@ -3,7 +3,12 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { formatTimestamp, type TranscriptSegment } from "@resound/core";
-import type { Transcriber, TranscriptionInput } from "./types.js";
+import type {
+  Transcriber,
+  TranscriptionInput,
+  TranscriberCapabilities,
+  TranscriberPreflightResult
+} from "./types.js";
 
 /**
  * Local-first transcription. Shells out to a locally installed Whisper binary so
@@ -71,6 +76,17 @@ export interface LocalWhisperOptions {
 export class LocalWhisperTranscriber implements Transcriber {
   readonly provider = "local-whisper";
   readonly model: string;
+  readonly capabilities: TranscriberCapabilities = {
+    local: true,
+    remote: false,
+    segmentTimestamps: true,
+    speakerAware: false,
+    wordTimestamps: false,
+    contextualPrompting: false,
+    confidence: false,
+    retrySafe: true,
+    privacy: "local-only"
+  };
   private readonly command: string;
   private readonly format: WhisperFormat;
   private readonly extraArgs: string[];
@@ -83,6 +99,47 @@ export class LocalWhisperTranscriber implements Transcriber {
     this.model = opts.model ?? env.RESOUND_WHISPER_MODEL ?? "local";
     this.extraArgs = opts.extraArgs ?? splitArgs(env.RESOUND_WHISPER_ARGS);
     this.run = opts.run ?? defaultRunner;
+  }
+
+  async preflight(): Promise<TranscriberPreflightResult> {
+    try {
+      await this.invoke(["--help"]);
+    } catch (err) {
+      return {
+        status: "fail",
+        provider: this.provider,
+        model: this.model,
+        summary: "Local Whisper preflight failed.",
+        warnings: [],
+        errors: [(err as Error).message],
+        remediation: [
+          "Install whisper.cpp or configure RESOUND_WHISPER_COMMAND to a working local transcription binary."
+        ]
+      };
+    }
+
+    const warnings: string[] = [];
+    const errors: string[] = [];
+    if (!this.model || this.model === "local") {
+      warnings.push("No explicit local Whisper model configured; runtime defaults will be used.");
+    } else if (!fs.existsSync(this.model)) {
+      warnings.push(`Configured model path does not exist on disk: ${this.model}`);
+    }
+
+    return {
+      status: errors.length > 0 ? "fail" : warnings.length > 0 ? "warning" : "pass",
+      provider: this.provider,
+      model: this.model,
+      summary:
+        warnings.length > 0
+          ? "Local Whisper preflight passed with warnings."
+          : "Local Whisper preflight passed.",
+      warnings,
+      errors,
+      remediation: warnings.length > 0
+        ? ["Set RESOUND_WHISPER_MODEL to an explicit local model path before production recording."]
+        : []
+    };
   }
 
   async transcribe(input: TranscriptionInput): Promise<TranscriptSegment[]> {

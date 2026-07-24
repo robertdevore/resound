@@ -15,11 +15,18 @@ const REQUIRED_MANIFEST_FIELDS: (keyof SessionManifest)[] = [
   "title",
   "source",
   "started_at",
+  "status",
   "started_by",
+  "requested_capture_mode",
+  "selected_capture_mode",
+  "recorder",
   "participants",
   "consent_events",
+  "audio_files",
+  "audio_health",
   "outputs",
-  "transcriber"
+  "transcriber",
+  "warnings"
 ];
 
 /** Validate a parsed manifest object in isolation (no filesystem). */
@@ -53,6 +60,14 @@ export function validateManifest(manifest: unknown): ValidationResult {
 
   if ("participants" in m && !Array.isArray(m.participants)) {
     errors.push("participants must be an array");
+  }
+
+  if ("audio_health" in m && !Array.isArray(m.audio_health)) {
+    errors.push("audio_health must be an array");
+  }
+
+  if ("warnings" in m && !Array.isArray(m.warnings)) {
+    errors.push("warnings must be an array");
   }
 
   if (!m.ended_at) {

@@ -12,5 +12,5 @@
     { "path": "../../packages/exporters" },
     { "path": "../../packages/sinks" }
   ],
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.d.ts"]
 }

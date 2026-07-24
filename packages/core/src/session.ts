@@ -1,7 +1,9 @@
 import {
   SCHEMA_VERSION,
+  type CaptureMode,
   type SessionManifest,
   type SessionOutputs,
+  type SessionStatus,
   type SessionSource,
   type StartedBy
 } from "./types.js";
@@ -67,12 +69,17 @@ export function buildSessionFolder(opts: BuildSessionIdOptions): string {
 export interface CreateManifestOptions {
   title: string;
   source?: SessionSource;
+  requestedCaptureMode?: CaptureMode | "auto";
+  selectedCaptureMode?: CaptureMode;
   guildId?: string;
   channelId?: string;
   startedBy?: StartedBy;
   startedAt?: Date;
+  status?: SessionStatus;
+  recorderId?: string;
   transcriberProvider?: string;
   transcriberModel?: string;
+  transcriberProfile?: string;
 }
 
 /** Build a fresh, in-progress manifest. `ended_at` stays empty until stop. */
@@ -91,13 +98,24 @@ export function createManifest(opts: CreateManifestOptions): SessionManifest {
     channel_id: opts.channelId ?? "",
     started_at: startedAt.toISOString(),
     ended_at: "",
+    status: opts.status ?? "created",
     started_by: opts.startedBy ?? { id: "", username: "" },
+    requested_capture_mode: opts.requestedCaptureMode ?? "mock",
+    selected_capture_mode: opts.selectedCaptureMode ?? "",
+    recorder: {
+      id: opts.recorderId ?? "",
+      mode: opts.selectedCaptureMode ?? "mock"
+    },
+    audio_files: {},
+    audio_health: [],
     participants: [],
     consent_events: [],
     outputs: defaultOutputs(),
     transcriber: {
       provider: opts.transcriberProvider ?? "",
-      model: opts.transcriberModel ?? ""
-    }
+      model: opts.transcriberModel ?? "",
+      profile: opts.transcriberProfile
+    },
+    warnings: []
   };
 }
