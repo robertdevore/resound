@@ -64,7 +64,7 @@ export class SessionManager {
     ) => new MockRecorder({ participants: p }),
     makeTranscriber?: () => Transcriber
   ) {
-    const configuredMode = env.RESOUND_BOT_MODE ?? "mock";
+    const configuredMode = env.RESOUND_BOT_MODE ?? "discord";
     this.mode =
       configuredMode === "discord" || configuredMode === "discord-native"
         ? "discord-native"

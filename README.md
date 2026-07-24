@@ -54,7 +54,7 @@ pnpm cli record --title "Client Call" --system <blackhole-index> --mic <mic-inde
 Recommended slash-command path:
 
 ```bash
-pnpm bot:start  # .env.example defaults the bot to local-capture
+pnpm bot:start  # .env.example now defaults the bot to Discord-native Pycord receive
 ```
 
 Then use `/resound start` and `/resound stop` in your own Discord server; stop

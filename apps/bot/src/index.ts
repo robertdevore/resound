@@ -30,24 +30,24 @@ import { SessionManager } from "./session-manager.js";
  * Resound Discord bot.
  *
  * Three modes (RESOUND_BOT_MODE):
- *  - "mock" (default): consent-aware sessions + full transcript artifacts using
+ *  - "mock": consent-aware sessions + full transcript artifacts using
  *    the mock recorder, WITHOUT joining voice. Always works.
  *  - "local-capture": slash commands control this machine's system/mic capture
  *    via ffmpeg + avfoundation. This is the reliable real-audio path today.
- *  - "discord": joins the caller's voice channel and uses the configured
+ *  - "discord" (default): joins the caller's voice channel and uses the configured
  *    Discord-native receiver backend. `RESOUND_DISCORD_RECEIVER_BACKEND=auto`
  *    prefers the Pycord sidecar and falls back to the legacy
  *    `@discordjs/voice` path. Live acceptance still matters, but this is now a
  *    real backend instead of a placeholder-only path.
  */
 
-const BOT_MODE = (process.env.RESOUND_BOT_MODE ?? "mock").trim();
+const BOT_MODE = (process.env.RESOUND_BOT_MODE ?? "discord").trim();
 const DISCORD_MODE = BOT_MODE === "discord" || BOT_MODE === "discord-native";
 const LOCAL_CAPTURE_MODE = BOT_MODE === "local-capture";
 const AUTO_MODE = BOT_MODE === "auto";
 type DiscordReceiverBackend = "auto" | "pycord" | "discordjs";
 const DISCORD_RECEIVER_BACKEND = (
-  process.env.RESOUND_DISCORD_RECEIVER_BACKEND ?? "auto"
+  process.env.RESOUND_DISCORD_RECEIVER_BACKEND ?? "pycord"
 ).trim() as DiscordReceiverBackend;
 
 // Live voice connections per guild, so we can leave on stop.

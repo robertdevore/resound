@@ -26,8 +26,8 @@ cp .env.example .env   # without .env, Resound falls back to mock mode
 | `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY` | — | For scaffolded providers |
 | `DISCORD_TOKEN` / `DISCORD_CLIENT_ID` | — | Discord bot |
 | `DISCORD_GUILD_ID` | — | Register slash commands to one guild (instant) |
-| `RESOUND_BOT_MODE` | `local-capture` in the template | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto` |
-| `RESOUND_DISCORD_RECEIVER_BACKEND` | `auto` | `auto` \| `pycord` \| `discordjs` for Discord-native bot receive |
+| `RESOUND_BOT_MODE` | `discord` in the template | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto` |
+| `RESOUND_DISCORD_RECEIVER_BACKEND` | `pycord` | `auto` \| `pycord` \| `discordjs` for Discord-native bot receive |
 | `RESOUND_DISCORD_PYTHON` | `python3` on PATH | Python interpreter for the Pycord sidecar |
 | `RESOUND_DISCORD_PYTHONPATH` | — | Extra `PYTHONPATH` entries for the Pycord sidecar |
 | `RESOUND_AUDIO_DEVICE` | — | Single local input device for `record` / local-capture |
