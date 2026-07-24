@@ -72,6 +72,8 @@ def probe() -> int:
 
 
 class AlignedTrack:
+    MAX_GAP_SECONDS = 5
+
     def __init__(self, pcm_path: Path, channels: int, sample_width: int, sample_rate: int) -> None:
         self.pcm_path = pcm_path
         self.channels = channels
@@ -81,13 +83,23 @@ class AlignedTrack:
         self.first_ts: int | None = None
         self.last_end_ts: int | None = None
         self.total_samples = 0
+        self.warnings: list[str] = []
 
     def write_packet(self, packet_ts: int, pcm: bytes, global_start_ts: int) -> None:
         frame_samples = len(pcm) // (self.channels * self.sample_width)
         if self.first_ts is None:
             self.first_ts = packet_ts
-        expected_ts = self.last_end_ts if self.last_end_ts is not None else global_start_ts
-        gap_samples = max(0, packet_ts - expected_ts)
+        expected_ts = self.last_end_ts
+        gap_samples = 0
+        if expected_ts is not None:
+            raw_gap = packet_ts - expected_ts
+            if raw_gap > self.sample_rate * self.MAX_GAP_SECONDS:
+                if not self.warnings:
+                    self.warnings.append(
+                        f"Ignored an implausible {raw_gap / self.sample_rate:.1f}s RTP timestamp gap."
+                    )
+            elif raw_gap > 0:
+                gap_samples = raw_gap
         if gap_samples:
             self.file.write(b"\x00" * gap_samples * self.channels * self.sample_width)
             self.total_samples += gap_samples
@@ -174,6 +186,7 @@ class TimelineSinkBase:
                     "durationSeconds": writer.total_samples / self.sample_rate,
                 }
             )
+            self.warnings.extend(entry["writer"].warnings)
 
         mixed_pcm = self.raw_dir / "mixed.pcm"
         mixed_wav = self.raw_dir / "mixed.wav"
