@@ -1,0 +1,5 @@
+# Pycord's released wheels do not yet include its DAVE voice-receive fix.
+# Keep this pinned until the fix lands in a release.
+py-cord @ git+https://github.com/Pycord-Development/pycord@326b72acc8d1d952ac002fe07ca65581cf5952bc
+davey==0.1.6
+PyNaCl>=1.5

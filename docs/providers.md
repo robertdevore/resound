@@ -76,10 +76,11 @@ The remaining gap is live acceptance evidence in a real DAVE-protected call.
   `VoiceReceiver.onUdpMessage`. **Sending** works; **receiving** does not.
 - `@snazzah/davey` is the DAVE protocol library bundled with `@discordjs/voice`,
   but the *receive* decrypt path is not yet wired up.
-- **Pycord 2.8.0 ships an active DAVE receive path.** Resound now uses a
-  Python sidecar around Pycord's voice receiver by default in
+- **Pycord's DAVE receive fix is currently available upstream but is not yet
+  in the released 2.8.0 wheel.** Resound uses a Python sidecar around the
+  patched Pycord voice receiver by default in
   `RESOUND_BOT_MODE=discord` / `discord-native`, with a real runtime preflight
-  for `py-cord[voice]`, `davey`, `PyNaCl`, and `libopus`.
+  for the pinned Pycord build, `davey`, `PyNaCl`, and `libopus`.
 - Legacy "subscribe to a user's Opus stream and decode it" snippets predate DAVE
   and will not work in DAVE-protected calls.
 
@@ -126,15 +127,15 @@ Sources: [discord.js #11419](https://github.com/discordjs/discord.js/issues/1141
 To enable the preferred live mode on a fresh machine:
 
 ```bash
-python3 -m pip install -U "py-cord[voice]"
+python3 -m pip install -U -r packages/audio/python/requirements.txt
 RESOUND_BOT_MODE=discord \
 RESOUND_DISCORD_RECEIVER_BACKEND=pycord \
 pnpm bot:start
 ```
 
 On this machine, `python3 packages/audio/python/discord_native_sidecar.py --probe`
-now returns a successful readiness payload with `py-cord 2.8.0`, `dave=true`,
-and `opus=true`.
+returns a successful readiness payload only when the installed Pycord build has
+both DAVE support and the DAVE receive fix (`dave_receive=true`).
 
 **Re-verify before relying on live capture:** successful sidecar probe,
 real-voice recording in a DAVE-protected call, per-user stream separation, and

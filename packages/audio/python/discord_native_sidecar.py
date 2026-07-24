@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import inspect
 import json
 import struct
 import sys
@@ -32,14 +33,35 @@ def probe() -> int:
         import discord  # type: ignore
         import davey  # type: ignore
         import nacl.secret  # type: ignore  # noqa: F401
+        from discord.voice import VoiceClient  # type: ignore
+        from discord.voice.receive.reader import PacketDecryptor  # type: ignore
 
         if not load_opus():
             emit("error", message="Pycord could not load libopus for Discord-native recording.")
             return 1
 
+        receive_source = inspect.getsource(PacketDecryptor.decrypt_rtp)
+        recording_source = inspect.getsource(VoiceClient.start_recording)
+        dave_receive = (
+            "dave.decrypt" in receive_source
+            and "Voice reception is currently broken" not in recording_source
+        )
+        if not dave_receive:
+            emit(
+                "error",
+                message=(
+                    "Installed Pycord does not contain the DAVE voice-receive fix. "
+                    "Install the pinned Pycord receive build from packages/audio/python/requirements.txt."
+                ),
+                dave_receive=False,
+                pycord=getattr(discord, "__version__", "unknown"),
+            )
+            return 1
+
         emit(
             "ready",
             dave=bool(getattr(davey, "DAVE_PROTOCOL_VERSION", 0) > 0),
+            dave_receive=True,
             pycord=getattr(discord, "__version__", "unknown"),
             opus=True,
         )

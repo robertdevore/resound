@@ -25,6 +25,7 @@ export interface PycordDiscordRecorderOptions {
 interface SidecarReadyEvent {
   event: "ready";
   dave: boolean;
+  dave_receive: boolean;
 }
 
 interface SidecarStoppedEvent {

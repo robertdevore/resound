@@ -159,7 +159,7 @@ and use `/resound` to control local capture.
 
    For Discord-native receive with the preferred Pycord sidecar:
    ```bash
-   python3 -m pip install -U "py-cord[voice]"
+   python3 -m pip install -U -r packages/audio/python/requirements.txt
    RESOUND_BOT_MODE=discord
    RESOUND_DISCORD_RECEIVER_BACKEND=pycord
    ```
