@@ -225,9 +225,16 @@ def create_timeline_sink(session_dir: Path) -> Any:
         def __init__(self) -> None:
             discord.sinks.Sink.__init__(self)
             TimelineSinkBase.__init__(self, session_dir)
+            self.encoding = "pcm"
 
         def walk_children(self) -> list[Any]:
             return []
+
+        def is_opus(self) -> bool:
+            return False
+
+        def format_audio(self, audio: Any) -> None:
+            return
 
         def cleanup(self) -> None:
             TimelineSinkBase.cleanup(self)
