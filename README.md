@@ -46,7 +46,8 @@ hear.
 Recommended real path:
 
 ```bash
-pnpm cli devices
+pnpm cli doctor --mode local-capture
+pnpm cli audio devices
 pnpm cli record --title "Client Call" --system <blackhole-index> --mic <mic-index> --participants "Robert,Client"
 ```
 
@@ -91,15 +92,18 @@ resound/
 ## Status
 
 - ✅ Full architecture, schemas, CLI, exporters, sinks, mock recorder, Kujo checks.
+- ✅ Structured recorder/transcriber preflight via `resound doctor`, `/resound doctor`, and `resound record --preflight`.
+- ✅ Atomic manifest writes plus lifecycle status persisted in the session manifest while a recording is in progress.
 - ✅ **Local-first transcription** (`local-whisper`) + an optional, vendor-neutral
   `openai-compatible` provider (any OpenAI-compatible endpoint).
 - ✅ **`resound transcribe <file>`** — turn any recording into a full session today.
 - ✅ **Local capture bot mode** (`RESOUND_BOT_MODE=local-capture`) — slash
   commands control this machine's system/mic capture.
+- ✅ `RESOUND_BOT_MODE=auto` now performs explicit recorder preflight and only falls back from Discord-native to local-capture when local capture is actually configured.
 - ✅ Live `DiscordRecorder` is implemented and wired into the bot
-  (`RESOUND_BOT_MODE=discord`), with optional/lazy native deps.
+  (`RESOUND_BOT_MODE=discord` / `discord-native`), with optional/lazy native deps.
 - ⛔ **Live Discord voice *receive* is currently blocked upstream by DAVE/E2EE**
-  (mandatory across Discord voice as of 2026; `@discordjs/voice` receive is broken).
+  (mandatory across Discord voice as of Friday, July 24, 2026; `@discordjs/voice` receive is still not a production-safe receive path).
   See [docs/providers.md](docs/providers.md). Until upstream fixes it, use the
   record-a-file workflow; the day receive works, flip `RESOUND_BOT_MODE=discord`
   with no code change.

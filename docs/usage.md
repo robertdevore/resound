@@ -26,7 +26,7 @@ cp .env.example .env   # without .env, Resound falls back to mock mode
 | `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY` | — | For scaffolded providers |
 | `DISCORD_TOKEN` / `DISCORD_CLIENT_ID` | — | Discord bot |
 | `DISCORD_GUILD_ID` | — | Register slash commands to one guild (instant) |
-| `RESOUND_BOT_MODE` | `local-capture` in the template | `mock` \| `local-capture` \| `discord` |
+| `RESOUND_BOT_MODE` | `local-capture` in the template | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto` |
 | `RESOUND_AUDIO_DEVICE` | — | Single local input device for `record` / local-capture |
 | `RESOUND_AUDIO_SYSTEM_DEVICE` | — | Local system/call audio input, usually BlackHole |
 | `RESOUND_AUDIO_MIC_DEVICE` | — | Local microphone input |
@@ -39,8 +39,11 @@ Run from source with `pnpm cli <args>`, or `node apps/cli/dist/index.js` after a
 
 ```bash
 resound init                                  # create the transcripts dir
-resound devices                               # list macOS audio input devices
+resound doctor                                # recorder + transcriber preflight
+resound audio devices                         # list macOS audio input devices
+resound devices                               # backward-compatible alias
 resound record --title "Team Sync"            # record system+mic audio, then transcribe (Enter/q to stop)
+resound record --title "Team Sync" --preflight
 resound mock "Engineering Standup"            # full mock session (record→transcribe→export)
 resound transcribe meeting.m4a --title "Q3"   # transcribe an existing recorded file
 resound sessions list                         # list local sessions
@@ -118,13 +121,14 @@ Limitations to know:
 
 ## Discord Workflow
 
-There are three bot modes:
+There are four bot modes:
 
 | Mode | What it proves / does | Real audio? |
 | --- | --- | --- |
 | `mock` | Slash commands, consent, session state, exports, sample transcript | No |
 | `local-capture` | Slash commands control this machine's configured system/mic recorder | Yes, if local audio routing works |
-| `discord` | Experimental bot-side voice receive through `@discordjs/voice` | Usually no today; gated by DAVE/E2EE |
+| `discord` / `discord-native` | Experimental bot-side voice receive through `@discordjs/voice` | Usually no today; gated by DAVE/E2EE |
+| `auto` | Preflight Discord-native first, then explicit fallback to local-capture if local capture is configured | Yes, but only if one real recorder passes preflight |
 
 For reusable real-world use, give each operator their own local setup: they
 create/invite a Discord bot, run Resound on the machine that can hear the call,
@@ -158,6 +162,7 @@ and use `/resound` to control local capture.
    ```
 5. In Discord:
    ```
+   /resound doctor
    /resound start
    /resound consent
    /resound status

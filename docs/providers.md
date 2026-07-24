@@ -60,9 +60,9 @@ RESOUND_TRANSCRIBER_MODEL=whisper-1
 > which is exactly what the live Discord receive adapter produces, once DAVE
 > receive works (below).
 
-## ⚠️ Discord voice receive, DAVE, and E2EE — current status (June 2026)
+## ⚠️ Discord voice receive, DAVE, and E2EE — current status (Friday, July 24, 2026)
 
-**As of mid-2026, live voice *receive* in third-party bots is effectively
+**As of Friday, July 24, 2026, live voice *receive* in third-party bots is effectively
 blocked by DAVE.** This is an upstream limitation, not a Resound one.
 
 - **DAVE is now mandatory.** Discord's MLS-based end-to-end encryption (DAVE)
@@ -111,10 +111,11 @@ Sources: [discord.js #11419](https://github.com/discordjs/discord.js/issues/1141
    avoids a fragile native Opus build.
 
    Because of the DAVE receive bug above, live mode **may capture no audio**
-   right now — the bot says so in its `/resound start` reply and falls back
-   gracefully. When `@discordjs/voice` ships working DAVE receive, install the
-   optional deps and set `RESOUND_BOT_MODE=discord`; **no Resound code change is
-   required.**
+   right now — the bot says so in its `/resound start` reply. In `auto` mode,
+   Resound now falls back only to preflighted local-capture; if neither real
+   recorder is ready, start fails before recording begins. When
+   `@discordjs/voice` ships working DAVE receive, install the optional deps and
+   set `RESOUND_BOT_MODE=discord`; **no Resound code change is required.**
 
 To enable live mode (once upstream receive works):
 

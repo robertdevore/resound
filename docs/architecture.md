@@ -8,7 +8,7 @@ Resound is a small monorepo of single-purpose packages. Data flows one way:
   │ (audio)    │                  │ (transcribers)│              │            │
   └────────────┘                  └───────────────┘              └─────┬──────┘
         ▲                                                              │ writes
-        │ mock | local system | discord(DAVE, pending)                 ▼
+        │ mock | local-capture | discord-native | auto                 ▼
   ┌────────────┐                                              transcripts/<date>/<session>/
   │ SessionMgr │                                                manifest.json
   │ bot / cli  │                                                transcript.jsonl  ← canonical
@@ -30,10 +30,11 @@ Resound is a small monorepo of single-purpose packages. Data flows one way:
 3. **Vendors are adapters.** Transcription providers implement `Transcriber`;
    downstream targets implement `Sink`. None are required; `mock` is the
    default and always works offline.
-4. **Audio capture is decoupled.** `Recorder` is an interface. `MockRecorder`
-   drives deterministic tests, `SystemRecorder` captures the operator machine's
-   local system/mic audio, and `DiscordRecorder` uses the same interface once
-   DAVE/E2EE voice receive is viable (see [providers.md](providers.md)).
+4. **Audio capture is decoupled.** `Recorder` is an interface with structured
+   capabilities, preflight, and health. `MockRecorder` drives deterministic
+   tests, `SystemRecorder` captures the operator machine's local system/mic
+   audio, and `DiscordRecorder` uses the same interface once DAVE/E2EE voice
+   receive is viable (see [providers.md](providers.md)).
 5. **Kujo is the verification layer**, not the audio layer. `.kujo/` holds
    declarative specs/workflows/checks; `@resound/kujo` is their executable
    counterpart, surfaced through `resound validate`.
@@ -66,6 +67,10 @@ writes portable artifacts.
 local recorder. This is different from `RESOUND_BOT_MODE=discord`, which tries
 bot-side voice receive and remains experimental while Discord DAVE/E2EE receive
 support is unstable.
+
+`RESOUND_BOT_MODE=auto` now performs recorder preflight before a session starts.
+It prefers Discord-native capture only when that recorder passes preflight, then
+falls back explicitly to local-capture when the host is configured for it.
 
 A VPS can be added later as an optional control plane, but it should not be the
 default capture strategy. A headless server cannot capture a user's local
