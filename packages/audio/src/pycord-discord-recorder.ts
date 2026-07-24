@@ -87,6 +87,7 @@ export class PycordDiscordRecorder implements Recorder {
   private status: RecordingHealth["status"] = "idle";
   private stopped?: SidecarStoppedEvent;
   private stderrTail = "";
+  private terminalError?: Error;
   private pending:
     Array<{
       predicate: (event: SidecarEvent) => boolean;
@@ -189,17 +190,25 @@ export class PycordDiscordRecorder implements Recorder {
     this.status = "recording";
     this.stopped = undefined;
     this.stderrTail = "";
+    this.terminalError = undefined;
 
     child.stderr?.on("data", (chunk) => {
       this.stderrTail = (this.stderrTail + String(chunk)).slice(-2000);
     });
     this.lines.on("line", (line) => this.handleLine(line));
-    child.on("error", (err) => this.failPending(err));
+    child.on("error", (err) => {
+      this.terminalError = err;
+      this.status = "failed";
+      this.failPending(err);
+    });
     child.on("exit", (code, signal) => {
       if (this.status !== "idle" && this.status !== "failed") {
-        this.failPending(
-          new Error(`Pycord sidecar exited unexpectedly (${code ?? signal}). ${this.stderrTail.slice(0, 500)}`)
+        const error = new Error(
+          `Pycord sidecar exited unexpectedly (${code ?? signal}). ${this.stderrTail.slice(0, 500)}`
         );
+        this.terminalError = error;
+        this.status = this.stopped ? "warning" : "failed";
+        this.failPending(error);
       }
       this.child = undefined;
       this.lines?.close();
@@ -223,7 +232,13 @@ export class PycordDiscordRecorder implements Recorder {
   }
 
   async stop(): Promise<AudioChunk[]> {
-    if (!this.child) throw new Error("Pycord sidecar recorder has not been started.");
+    if (this.stopped) {
+      this.status = this.stopped.warnings?.length ? "warning" : "idle";
+      return [...this.stopped.tracks].sort((a, b) => a.startSeconds - b.startSeconds);
+    }
+    if (!this.child) {
+      throw this.terminalError ?? new Error("Pycord sidecar recorder is not running.");
+    }
     this.status = "stopping";
     const stoppedPromise = this.waitForEvent((event): event is SidecarStoppedEvent => event.event === "stopped");
     this.child.stdin?.write("stop\n");
@@ -258,8 +273,13 @@ export class PycordDiscordRecorder implements Recorder {
     if (!event) return;
     if (event.event === "error") {
       this.status = "failed";
-      this.failPending(new Error(event.message));
+      this.terminalError = new Error(event.message);
+      this.failPending(this.terminalError);
       return;
+    }
+    if (event.event === "stopped") {
+      this.stopped = event;
+      this.status = event.warnings?.length ? "warning" : "idle";
     }
     const match = this.pending.find((entry) => entry.predicate(event));
     if (!match) return;
