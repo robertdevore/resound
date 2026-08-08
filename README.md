@@ -1,109 +1,188 @@
 # Resound
 
-**Local-first, vendor-neutral Discord voice transcription.** A lightweight
-"Fathom for Discord" built around operator-owned capture, portable files, and
-no lock-in.
+[![Version](https://img.shields.io/badge/version-0.1.0-black)](https://github.com/robertdevore/resound/releases/tag/v0.1.0)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
+[![built with Kujo](https://img.shields.io/badge/built%20with-Kujo-white.svg)](https://github.com/kujolang/kujo)
+[![CI](https://github.com/robertdevore/resound/actions/workflows/ci.yml/badge.svg)](https://github.com/robertdevore/resound/actions/workflows/ci.yml)
+[![node](https://img.shields.io/badge/node-%E2%89%A520-339933.svg?logo=node.js&logoColor=white)](#quick-start)
 
-Resound turns conversations into **portable memory**:
+**Portable memory for Discord conversations.** Resound records voice locally,
+transcribes with the provider you choose, and writes durable Markdown, JSONL,
+VTT, and SRT artifacts that you own.
 
-- **Discord voice** is captured from the operator's local machine today.
-- **Markdown / JSONL / VTT / SRT** are the canonical portable outputs.
-- **[TotalRecall](https://github.com/robertdevore/totalrecall/)** and **[Strata](https://github.com/robertdevore/strata/)** are *optional* downstream sinks.
-- **[Kujo](https://github.com/kujolang/kujo/)** is the workflow / spec / verification layer.
+No hosted service, web dashboard, or database is required. Strata and
+TotalRecall are optional destinations, not dependencies.
 
-No web dashboard, database-first design, hosted service, or required vendor. You can use
-Resound and never touch Strata, OpenAI, or TotalRecall - the artifacts are
-useful on their own.
+```bash
+pnpm cli mock "Engineering Standup"
+pnpm cli validate <session>
+pnpm cli export <session> --format md
+```
+
+## Contents
+
+- [Why Resound](#why-resound) · [Quick start](#quick-start) · [Real recording](#real-recording)
+- [What you can do](#what-you-can-do) · [How it works](#how-it-works) · [Discord bot](#discord-bot)
+- [Project status](#project-status) · [Documentation](#documentation) · [License](#license)
+
+---
+
+## Why Resound
+
+- **Local-first** — capture runs on the operator's machine and session files
+  stay under operator control.
+- **Vendor-neutral** — use local Whisper or any OpenAI-compatible transcription
+  endpoint.
+- **Portable** — every session is a self-describing folder, not a row trapped in
+  a service database.
+- **Consent-aware** — recording is announced and consent events are preserved in
+  the session manifest.
+- **Composable** — keep the files, post them to a webhook, or send them to
+  optional Strata and TotalRecall sinks.
 
 ## Quick start
 
+> **Prerequisites:** Node.js 20 or newer and pnpm 9.15.0.
+
 ```bash
-nvm use            # Node 20+ (this repo is tested on 22)
+nvm use
 corepack enable
 pnpm install
 pnpm build
 pnpm test
 
-# Create a complete mock session end-to-end (no Discord, no API key):
+# Complete offline smoke test: record, transcribe, and export mock data.
 pnpm cli mock "Engineering Standup"
-
-# Inspect and validate it:
-pnpm cli sessions list
-pnpm cli validate <session-folder-name>
-pnpm cli export <session-folder-name> --format md
 ```
 
-`pnpm cli ...` runs the CLI from source via `tsx`. After `pnpm build`, the
-`resound` binary is available at `apps/cli/dist/index.js`.
+Run the CLI from source with `pnpm cli <command>`. After `pnpm build`, the
+compiled entry point is `apps/cli/dist/index.js`.
 
-## How Real Discord Recording Works Today
+## Real recording
 
-Discord's DAVE/E2EE rollout makes bot-side voice receive unreliable for
-third-party bots. Resound therefore treats the Discord bot as the consent and
-control surface, while the operator's machine captures the audio it can already
-hear.
-
-Recommended real path:
+On macOS, route call audio through a virtual input such as BlackHole, then let
+Resound capture it alongside your microphone:
 
 ```bash
 pnpm cli doctor --mode local-capture
 pnpm cli audio devices
-pnpm cli record --title "Client Call" --system <blackhole-index> --mic <mic-index> --participants "Robert,Client"
+pnpm cli record \
+  --title "Client Call" \
+  --system <blackhole-index> \
+  --mic <microphone-index> \
+  --participants "Robert,Client"
 ```
 
-Recommended slash-command path:
+To transcribe an existing recording instead:
 
 ```bash
-pnpm bot:start  # .env.example now defaults the bot to Discord-native Pycord receive
+pnpm cli transcribe ./meeting.m4a \
+  --title "Q3 Planning" \
+  --provider local-whisper \
+  --participants "Robert,Ashley,Jelena"
 ```
 
-Then use `/resound start` and `/resound stop` in your own Discord server; stop
-attaches the Markdown transcript automatically. The bot process must run on the machine doing the audio capture.
-Other operators can clone this repo, create their own Discord app, configure
-their own local audio devices, and run the same workflow for their servers.
+See the [recording guide](docs/recording.md) for macOS audio routing and the
+[provider guide](docs/providers.md) for local Whisper and OpenAI-compatible
+configuration.
+
+## What you can do
+
+| Command | What it does |
+| --- | --- |
+| `resound doctor` | Check recorder and transcriber readiness |
+| `resound audio devices` | List macOS audio input devices |
+| `resound record` | Capture system audio and microphone, then transcribe |
+| `resound transcribe <file>` | Turn an existing audio file into a session |
+| `resound mock <title>` | Create a complete offline test session |
+| `resound sessions list` | List local sessions |
+| `resound sessions show <session>` | Inspect a session manifest and transcript preview |
+| `resound validate <session>` | Validate consent, manifest, outputs, and Kujo checks |
+| `resound export <session> --format all` | Write Markdown, JSONL, VTT, and SRT outputs |
+| `resound summarize <session>` | Regenerate the Markdown summary |
+| `resound action-items <session>` | Regenerate extracted action items |
+| `resound sink <target> <session>` | Send artifacts to stdout, a folder, webhook, Strata, or TotalRecall |
+
+Run `pnpm cli --help` for the complete command list and
+`pnpm cli <command> --help` for every flag.
+
+## How it works
+
+```text
+audio source
+    │
+    ├─ local system audio + microphone
+    ├─ existing audio file
+    └─ Discord-native receiver (experimental)
+    │
+    ▼
+transcriber ── local Whisper or OpenAI-compatible API
+    │
+    ▼
+portable session folder
+    ├─ manifest.json
+    ├─ transcript.jsonl
+    ├─ transcript.md
+    ├─ transcript.vtt / transcript.srt
+    ├─ summary.md
+    └─ action-items.md
+```
+
+## Discord bot
+
+The bot provides consent, status, and recording controls through `/resound`.
+It supports four recorder modes:
+
+| Mode | Purpose |
+| --- | --- |
+| `mock` | Exercise the complete workflow without real audio |
+| `local-capture` | Control system-audio and microphone capture on the bot host |
+| `discord-native` | Receive Discord voice through the Pycord sidecar |
+| `auto` | Prefer Discord-native and fall back when local capture is configured |
+
+```bash
+cp .env.example .env
+pnpm bot:register
+pnpm bot:start
+```
+
+Discord-native voice receive is still experimental because Discord's
+DAVE/E2EE behavior requires live acceptance testing across real calls. For
+reliable production use today, prefer local capture or transcribe an existing
+recording. The [provider guide](docs/providers.md) documents the constraint and
+current receiver status.
 
 ## Repository layout
 
+```text
+apps/cli/             command-line interface
+apps/bot/             Discord slash-command bot
+packages/audio/       capture and Discord receiver adapters
+packages/core/        sessions, manifests, consent, validation, storage
+packages/transcribers provider adapters
+packages/exporters/   Markdown, JSONL, VTT, SRT, summaries, action items
+packages/sinks/       filesystem, stdout, webhook, Strata, TotalRecall
+packages/kujo/        executable checks
+.kujo/                specs and workflows
+docs/                 setup, architecture, consent, recording, providers
 ```
-resound/
-  apps/
-    bot/          Discord bot (slash commands; mock/local-capture/experimental receive)
-    cli/          `resound` CLI — works on local folders, no bot required
-  packages/
-    core/         canonical data model, session/manifest, validation, store
-    audio/        capture abstraction + mock, local system, and Discord recorders
-    transcribers/ provider adapters: mock, openai, + scaffolds
-    exporters/    jsonl/md/vtt/srt/summary/action-items renderers
-    sinks/        filesystem, stdout, webhook, strata, totalrecall
-    kujo/         executable Kujo checks
-  .kujo/          declarative specs / workflows / checks
-  transcripts/    session output (file-first, git-ignored)
-  docs/           architecture, usage, consent, providers
-```
+
+## Project status
+
+Version 0.1.0 includes the complete file-first workflow, local capture,
+transcription providers, exporters, sinks, validation, Discord controls, and an
+experimental Discord-native receiver. The remaining production-readiness gate
+is live, multi-speaker Discord-native acceptance testing.
 
 ## Documentation
 
-- [docs/usage.md](docs/usage.md) — setup, env, every command, all workflows
-- [docs/recording.md](docs/recording.md) — **record a real Discord call on macOS** (system-audio capture, the for-real path)
-- [docs/architecture.md](docs/architecture.md) — how the pieces fit
-- [docs/consent.md](docs/consent.md) — the consent model (Resound forbids hidden recording)
-- [docs/providers.md](docs/providers.md) — transcription providers **and the Discord voice / DAVE / E2EE constraint**
+- [Getting started and CLI reference](docs/usage.md)
+- [Recording on macOS](docs/recording.md)
+- [Architecture](docs/architecture.md)
+- [Consent model](docs/consent.md)
+- [Providers and Discord DAVE/E2EE](docs/providers.md)
+- [Changelog](CHANGELOG.md)
 
-## Status
+## License
 
-- ✅ Full architecture, schemas, CLI, exporters, sinks, mock recorder, Kujo checks.
-- ✅ Structured recorder/transcriber preflight via `resound doctor`, `/resound doctor`, and `resound record --preflight`.
-- ✅ Atomic manifest writes plus lifecycle status persisted in the session manifest while a recording is in progress.
-- ✅ **Local-first transcription** (`local-whisper`) + an optional, vendor-neutral
-  `openai-compatible` provider (any OpenAI-compatible endpoint).
-- ✅ **`resound transcribe <file>`** — turn any recording into a full session today.
-- ✅ **Local capture bot mode** (`RESOUND_BOT_MODE=local-capture`) — slash
-  commands control this machine's system/mic capture.
-- ✅ `RESOUND_BOT_MODE=auto` now performs explicit recorder preflight and only falls back from Discord-native to local-capture when local capture is actually configured.
-- ✅ Discord-native bot mode now prefers a **Pycord voice sidecar** receiver
-  with explicit preflight, while keeping the legacy `@discordjs/voice` path as
-  an opt-in fallback (`RESOUND_DISCORD_RECEIVER_BACKEND=discordjs`).
-- ⚠️ **Discord-native receive still needs live acceptance evidence** before it
-  should be treated as production-ready. The dependency/runtime handshake now
-  works on this machine, but real multi-speaker call validation remains the
-  gating step. See [docs/providers.md](docs/providers.md).
+MIT © Robert DeVore — see [LICENSE](LICENSE).
