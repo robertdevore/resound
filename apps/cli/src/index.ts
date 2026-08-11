@@ -41,10 +41,13 @@ import { createFileSession, createMockSession, parseParticipants } from "./sessi
 import { isInteractiveStopInput, listAudioDevices, recordAudio } from "./record.js";
 
 const program = new Command();
+const cliVersion = (
+  JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
+).version;
 program
   .name("resound")
   .description("Resound — portable Discord voice transcription. Conversations become memory.")
-  .version("0.1.0");
+  .version(cliVersion);
 
 function root(): string {
   return outputRoot(process.env);

@@ -112,6 +112,17 @@ describe("local-whisper transcriber", () => {
     await expect(t.transcribe({ audioPath: audio })).rejects.toThrow(/not found|RESOUND_WHISPER_COMMAND/);
   });
 
+  it("fails preflight and transcription on non-zero process exits", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-lw-"));
+    const audio = path.join(dir, "a.wav");
+    fs.writeFileSync(audio, "x");
+    const run = vi.fn(async () => ({ code: 2, stdout: "", stderr: "bad model" }));
+    const t = new LocalWhisperTranscriber({ command: "whisper-cli", run });
+
+    await expect(t.preflight()).resolves.toMatchObject({ status: "fail" });
+    await expect(t.transcribe({ audioPath: audio })).rejects.toThrow(/exited 2.*bad model/);
+  });
+
   it("merges per-speaker tracks back into one timestamp-ordered transcript", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-lw-"));
     const robert = path.join(dir, "robert.wav");
