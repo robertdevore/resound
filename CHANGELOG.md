@@ -2,6 +2,22 @@
 
 All notable changes to Resound are documented here.
 
+## [0.2.0] - 2026-08-11
+
+### Changed
+
+- Session IDs and folders include seconds and milliseconds to avoid same-minute collisions.
+- Simplified the README around setup, recording, commands, and production constraints.
+
+### Fixed
+
+- Create only one recorder per bot session, avoiding duplicate factory work and side effects.
+- Carry rounded subtitle milliseconds into the next second instead of emitting invalid `.1000` or `,1000` timestamps.
+
+### Security
+
+- Verified the pnpm dependency graph has no known audit findings at release preparation time.
+
 ## [0.1.0] - 2026-08-08
 
 The first official release of Resound: local-first, vendor-neutral Discord
@@ -27,3 +43,4 @@ voice transcription with portable session artifacts.
   GHSA-m8rv-5g2x-5cg5, and GHSA-v3r7-h72x-cjcm.
 
 [0.1.0]: https://github.com/robertdevore/resound/releases/tag/v0.1.0
+[0.2.0]: https://github.com/robertdevore/resound/releases/tag/v0.2.0
