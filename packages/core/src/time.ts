@@ -15,8 +15,15 @@ export function formatTimestamp(totalSeconds: number): string {
 
 /** `hh:mm:ss` or `mm:ss` -> seconds. */
 export function parseTimestamp(ts: string): number {
-  const parts = ts.trim().split(":").map((p) => Number(p));
-  if (parts.some((p) => Number.isNaN(p))) {
+  const value = ts.trim();
+  if (!/^(?:\d+:)?\d{1,2}:\d{2}(?:[.,]\d{1,3})?$/.test(value)) {
+    throw new Error(`Invalid timestamp: "${ts}"`);
+  }
+  const normalized = value.replace(",", ".");
+  const parts = normalized.split(":").map(Number);
+  const minutes = parts.at(-2)!;
+  const secondsPart = parts.at(-1)!;
+  if (minutes >= 60 || secondsPart >= 60) {
     throw new Error(`Invalid timestamp: "${ts}"`);
   }
   let seconds = 0;

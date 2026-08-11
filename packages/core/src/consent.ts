@@ -33,18 +33,23 @@ export function addParticipant(
 ): void {
   const joinedAt = participant.joinedAt ?? new Date().toISOString();
   const existing = manifest.participants.find((p) => p.id === participant.id);
+  const joined = !existing || existing.left_at !== undefined;
   if (existing) {
-    existing.left_at = undefined;
-    return;
+    existing.username = participant.username;
+    if (joined) {
+      existing.joined_at = joinedAt;
+      existing.left_at = undefined;
+    }
+  } else {
+    manifest.participants.push({
+      id: participant.id,
+      username: participant.username,
+      joined_at: joinedAt
+    });
   }
-  manifest.participants.push({
-    id: participant.id,
-    username: participant.username,
-    joined_at: joinedAt
-  });
 
   const recordingActive = manifest.started_at !== "" && manifest.ended_at === "";
-  if (recordingActive) {
+  if (recordingActive && joined) {
     recordConsentEvent(manifest, {
       type: "participant-joined",
       user_id: participant.id,
@@ -62,7 +67,16 @@ export function removeParticipant(
   leftAt?: string
 ): void {
   const existing = manifest.participants.find((p) => p.id === userId);
-  if (existing) existing.left_at = leftAt ?? new Date().toISOString();
+  if (existing && existing.left_at === undefined) {
+    const ts = leftAt ?? new Date().toISOString();
+    existing.left_at = ts;
+    recordConsentEvent(manifest, {
+      type: "participant-left",
+      user_id: existing.id,
+      username: existing.username,
+      ts
+    });
+  }
 }
 
 /** True if at least one explicit consent/announcement event is present. */

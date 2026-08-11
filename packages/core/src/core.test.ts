@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   addParticipant,
   buildSessionFolder,
@@ -6,14 +9,19 @@ import {
   createManifest,
   formatTimestamp,
   hasConsent,
+  loadSession,
+  outputRoot,
   parseJsonl,
   parseTimestamp,
   recordConsentEvent,
+  removeParticipant,
+  sessionPaths,
   slugify,
   toJsonl,
   toSrtTimestamp,
   toVttTimestamp,
   validateManifest,
+  writeManifest,
   type TranscriptSegment
 } from "./index.js";
 
@@ -87,6 +95,23 @@ describe("consent + participants", () => {
     addParticipant(m, { id: "1", username: "robert" });
     addParticipant(m, { id: "1", username: "robert" });
     expect(m.participants).toHaveLength(1);
+    expect(m.consent_events).toHaveLength(1);
+  });
+
+  it("records departures and treats a return as a new join", () => {
+    const m = createManifest({ title: "x", startedAt: at });
+    addParticipant(m, { id: "1", username: "old", joinedAt: "2026-06-22T14:32:00Z" });
+    removeParticipant(m, "1", "2026-06-22T14:40:00Z");
+    addParticipant(m, { id: "1", username: "new", joinedAt: "2026-06-22T14:45:00Z" });
+
+    expect(m.participants).toEqual([
+      { id: "1", username: "new", joined_at: "2026-06-22T14:45:00Z" }
+    ]);
+    expect(m.consent_events.map((event) => event.type)).toEqual([
+      "participant-joined",
+      "participant-left",
+      "participant-joined"
+    ]);
   });
 });
 
@@ -106,6 +131,14 @@ describe("timestamps", () => {
 		expect(toVttTimestamp(1.9996)).toBe("00:00:02.000");
 		expect(toSrtTimestamp(59.9996)).toBe("00:01:00,000");
 	});
+
+  it("rejects malformed and out-of-range timestamps", () => {
+    for (const value of ["", "12", "1:2", "00:60", "00:00:60", "-1:00", "1:02:03:04"]) {
+      expect(() => parseTimestamp(value), value).toThrow(/Invalid timestamp/);
+    }
+    expect(parseTimestamp("03:12.500")).toBe(192.5);
+    expect(parseTimestamp("00:03:12,250")).toBe(192.25);
+  });
 });
 
 describe("jsonl", () => {
@@ -130,5 +163,66 @@ describe("jsonl", () => {
     const bad = '{"ts":"00:00:01"}\nnot json\n';
     const parsed = parseJsonl(bad);
     expect(parsed.errors.length).toBe(2);
+  });
+
+  it("rejects wrong field types and invalid confidence instead of coercing them", () => {
+    const wrongType = JSON.stringify({
+      ts: 1,
+      end_ts: "00:00:02",
+      speaker: "Robert",
+      user_id: "1",
+      text: "hello",
+      confidence: "high"
+    });
+    const outOfRange = JSON.stringify({
+      ts: "00:00:01",
+      end_ts: "00:00:02",
+      speaker: "Robert",
+      user_id: "1",
+      text: "hello",
+      confidence: 2
+    });
+    const parsed = parseJsonl(`${wrongType}\n${outOfRange}\n`);
+    expect(parsed.segments).toEqual([]);
+    expect(parsed.errors).toHaveLength(2);
+  });
+});
+
+describe("session storage", () => {
+  it("trims a configured output root", () => {
+    expect(outputRoot({ RESOUND_OUTPUT_DIR: "  ./records  " } as NodeJS.ProcessEnv)).toBe("./records");
+  });
+
+  it("rejects declared outputs that escape the session directory", () => {
+    const manifest = createManifest({ title: "x", startedAt: at });
+    manifest.outputs.jsonl = "../outside.jsonl";
+    expect(() => sessionPaths("/tmp/session", manifest)).toThrow(/escapes session directory/);
+  });
+
+  it("does not silently load the valid prefix of a corrupt transcript", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-store-"));
+    const manifest = createManifest({ title: "x", startedAt: at });
+    recordConsentEvent(manifest, { type: "recording-announced", user_id: "1", username: "bot" });
+    writeManifest(dir, manifest);
+    fs.writeFileSync(
+      path.join(dir, "transcript.jsonl"),
+      `${toJsonl([{ ts: "00:00:00", end_ts: "00:00:01", speaker: "A", user_id: "1", text: "ok", confidence: 1 }])}not-json\n`
+    );
+    expect(() => loadSession(dir)).toThrow(/Invalid transcript JSONL/);
+  });
+
+  it("requires the complete manifest output contract", () => {
+    const valid = createManifest({ title: "x", startedAt: at });
+    recordConsentEvent(valid, {
+      type: "recording-announced",
+      user_id: "1",
+      username: "bot"
+    });
+    const manifest = valid as unknown as Record<string, unknown>;
+    delete manifest.ended_at;
+    manifest.outputs = null;
+    const result = validateManifest(manifest);
+    expect(result.errors).toContain("manifest missing required field: ended_at");
+    expect(result.errors).toContain("outputs must be an object");
   });
 });

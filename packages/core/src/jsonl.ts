@@ -40,13 +40,27 @@ export function parseJsonl(content: string): ParseResult {
       errors.push(`Line ${index + 1}: missing field(s): ${missing.join(", ")}`);
       return;
     }
+    const stringFields = ["ts", "end_ts", "speaker", "user_id", "text"] as const;
+    const wrongTypes: string[] = stringFields.filter((field) => typeof record[field] !== "string");
+    const confidence = record.confidence;
+    if (typeof confidence !== "number" || !Number.isFinite(confidence)) {
+      wrongTypes.push("confidence");
+    }
+    if (wrongTypes.length > 0) {
+      errors.push(`Line ${index + 1}: invalid type for field(s): ${wrongTypes.join(", ")}`);
+      return;
+    }
+    if (typeof confidence === "number" && (confidence < 0 || confidence > 1)) {
+      errors.push(`Line ${index + 1}: confidence must be between 0 and 1`);
+      return;
+    }
     segments.push({
-      ts: String(record.ts),
-      end_ts: String(record.end_ts),
-      speaker: String(record.speaker),
-      user_id: String(record.user_id),
-      text: String(record.text),
-      confidence: Number(record.confidence)
+      ts: record.ts as string,
+      end_ts: record.end_ts as string,
+      speaker: record.speaker as string,
+      user_id: record.user_id as string,
+      text: record.text as string,
+      confidence: confidence as number
     });
   });
 

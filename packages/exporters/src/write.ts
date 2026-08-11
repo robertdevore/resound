@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import {
   sessionPaths,
   toJsonl,
@@ -46,6 +47,7 @@ export function writeSessionOutputs(
   ];
 
   for (const [p, content] of files) {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, content, "utf8");
     written.push(p);
   }

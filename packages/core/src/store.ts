@@ -25,7 +25,11 @@ export function loadSession(dir: string): TranscriptSession {
   const paths = sessionPaths(dir, manifest);
   let segments = [] as TranscriptSession["segments"];
   if (fs.existsSync(paths.jsonl)) {
-    segments = parseJsonl(fs.readFileSync(paths.jsonl, "utf8")).segments;
+    const parsed = parseJsonl(fs.readFileSync(paths.jsonl, "utf8"));
+    if (parsed.errors.length > 0) {
+      throw new Error(`Invalid transcript JSONL:\n${parsed.errors.join("\n")}`);
+    }
+    segments = parsed.segments;
   }
   return { manifest, segments, dir };
 }

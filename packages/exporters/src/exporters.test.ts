@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createManifest, addParticipant, type TranscriptSegment } from "@resound/core";
 import { toMarkdown } from "./markdown.js";
 import { toSrt, toVtt } from "./subtitles.js";
 import { extractActionItems } from "./summary.js";
+import { writeSessionOutputs } from "./write.js";
 
 const at = new Date("2026-06-22T14:32:00Z");
 
@@ -64,5 +68,19 @@ describe("action items", () => {
     const { segments } = fixture();
     const items = extractActionItems(segments);
     expect(items.some((i) => i.includes("migration"))).toBe(true);
+  });
+});
+
+describe("output writing", () => {
+  it("creates parent directories for configured nested output paths", () => {
+    const { manifest, segments } = fixture();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-export-"));
+    manifest.outputs.markdown = "exports/transcript.md";
+    manifest.outputs.summary = "exports/summary.md";
+
+    writeSessionOutputs({ manifest, segments, dir });
+
+    expect(fs.existsSync(path.join(dir, "exports", "transcript.md"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "exports", "summary.md"))).toBe(true);
   });
 });

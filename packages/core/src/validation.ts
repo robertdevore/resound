@@ -14,7 +14,10 @@ const REQUIRED_MANIFEST_FIELDS: (keyof SessionManifest)[] = [
   "session_id",
   "title",
   "source",
+  "guild_id",
+  "channel_id",
   "started_at",
+  "ended_at",
   "status",
   "started_by",
   "requested_capture_mode",
@@ -70,6 +73,19 @@ export function validateManifest(manifest: unknown): ValidationResult {
     errors.push("warnings must be an array");
   }
 
+  if ("outputs" in m) {
+    if (typeof m.outputs !== "object" || m.outputs === null) {
+      errors.push("outputs must be an object");
+    } else {
+      const outputs = m.outputs as Record<string, unknown>;
+      for (const field of ["jsonl", "markdown", "vtt", "srt", "summary", "action_items"]) {
+        if (typeof outputs[field] !== "string" || outputs[field].length === 0) {
+          errors.push(`outputs.${field} must be a non-empty string`);
+        }
+      }
+    }
+  }
+
   if (!m.ended_at) {
     warnings.push("ended_at is empty — session may still be in progress");
   }
@@ -107,7 +123,13 @@ export function validateSession(dir: string): ValidationResult {
   warnings.push(...manifestResult.warnings);
 
   // Declared outputs should exist on disk.
-  const paths = sessionPaths(dir, manifest);
+  let paths: ReturnType<typeof sessionPaths>;
+  try {
+    paths = sessionPaths(dir, manifest);
+  } catch (err) {
+    errors.push((err as Error).message);
+    return { valid: false, errors, warnings };
+  }
   const declared: [string, string][] = [
     ["jsonl", paths.jsonl],
     ["markdown", paths.markdown],
