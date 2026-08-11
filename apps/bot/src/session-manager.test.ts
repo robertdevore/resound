@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { loadSession, validateSession } from "@resound/core";
+import { loadSession, readManifest, validateSession } from "@resound/core";
 import { SessionManager } from "./session-manager.js";
 import type { Recorder } from "@resound/audio";
 
@@ -65,6 +65,48 @@ describe("SessionManager (mock mode)", () => {
     });
     const msg = mgr.participantJoined({ id: "u2", username: "ashley" });
     expect(msg).toMatch(/transcription is active/i);
+    const paths = mgr.currentPaths()!;
+    expect(readManifest(paths.dir).participants.some((participant) => participant.id === "u2")).toBe(true);
+  });
+
+  it("persists consent immediately and refuses consent after completion", async () => {
+    const mgr = new SessionManager(envFor());
+    await mgr.start("Standup", {
+      guildId: "g1",
+      channelId: "c1",
+      startedBy: { id: "u1", username: "robert" }
+    });
+    mgr.consent({ id: "u2", username: "ashley" });
+    const paths = mgr.currentPaths()!;
+    expect(readManifest(paths.dir).consent_events.some((event) => event.user_id === "u2")).toBe(true);
+    await mgr.stop();
+    expect(() => mgr.consent({ id: "u2", username: "ashley" })).toThrow(/No active session/);
+  });
+
+  it("does not remain active when recorder startup fails", async () => {
+    const recorder: Recorder = {
+      capabilities: {
+        mixedAudio: true,
+        separateSpeakerTracks: false,
+        reliableSpeakerIdentity: false,
+        liveParticipantEvents: false,
+        pauseResume: false,
+        localOnly: true,
+        reconnectSupport: false,
+        healthMetrics: false,
+        strictConsentCompatible: false
+      },
+      mode: "mock",
+      async start() { throw new Error("device failed"); },
+      async stop() { return []; }
+    };
+    const mgr = new SessionManager(envFor(), () => recorder);
+    await expect(mgr.start("Broken", {
+      guildId: "g1",
+      channelId: "c1",
+      startedBy: { id: "u1", username: "robert" }
+    })).rejects.toThrow(/device failed/);
+    expect(mgr.active).toBe(false);
   });
 
   it("stops and writes a complete, valid session", async () => {
@@ -147,12 +189,11 @@ describe("SessionManager (mock mode)", () => {
     expect(session.manifest.transcriber.provider).toBe("mock");
   });
 
-  it("pause/resume guards state transitions", async () => {
+  it("rejects pause when the recorder does not support it", async () => {
     const mgr = new SessionManager(envFor());
     await mgr.start("S", { guildId: "g", channelId: "c", startedBy: { id: "1", username: "a" } });
-    await expect(mgr.pause()).resolves.toMatch(/paused/i);
-    await expect(mgr.pause()).rejects.toThrow();
-    await expect(mgr.resume()).resolves.toMatch(/resumed/i);
+    await expect(mgr.pause()).rejects.toThrow(/does not support pausing/);
+    expect(mgr.status()).toContain("State: recording");
   });
 
   it("pauses and resumes the underlying recorder", async () => {

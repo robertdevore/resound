@@ -139,23 +139,27 @@ export class SessionManager {
       id: this.recorder.id ?? normalizeRecorderMode(this.recorder.mode),
       mode: normalizeRecorderMode(this.recorder.mode)
     };
-    const preflight = await this.recorder.preflight?.({
-      sessionDir: this.dir,
-      outputDir: outputRoot(this.env)
-    });
-    if (preflight?.warnings.length) this.manifest.warnings.push(...preflight.warnings);
-    if (preflight?.status === "fail") {
-      this.transition("failed", "failed");
-      throw new Error(preflight.errors[0] ?? "Recorder preflight failed.");
-    }
-    const transcriberPreflight = await transcriber.preflight?.();
-    if (transcriberPreflight?.warnings.length) this.manifest.warnings.push(...transcriberPreflight.warnings);
-    if (transcriberPreflight?.status === "fail") {
-      this.transition("failed", "failed");
-      throw new Error(transcriberPreflight.errors[0] ?? "Transcriber preflight failed.");
-    }
+    try {
+      const preflight = await this.recorder.preflight?.({
+        sessionDir: this.dir,
+        outputDir: outputRoot(this.env)
+      });
+      if (preflight?.warnings.length) this.manifest.warnings.push(...preflight.warnings);
+      if (preflight?.status === "fail") {
+        throw new Error(preflight.errors[0] ?? "Recorder preflight failed.");
+      }
+      const transcriberPreflight = await transcriber.preflight?.();
+      if (transcriberPreflight?.warnings.length) this.manifest.warnings.push(...transcriberPreflight.warnings);
+      if (transcriberPreflight?.status === "fail") {
+        throw new Error(transcriberPreflight.errors[0] ?? "Transcriber preflight failed.");
+      }
 
-    await this.recorder.start({ sessionDir: this.dir });
+      await this.recorder.start({ sessionDir: this.dir });
+    } catch (err) {
+      this.transition("failed", "failed");
+      this.recorder = undefined;
+      throw err;
+    }
     this.lastCaptureReport = [];
     this.transition("recording", "recording");
 
@@ -168,35 +172,44 @@ export class SessionManager {
   /** Log a participant joining mid-session (auto-announces if recording). */
   participantJoined(p: { id: string; username: string }): string | undefined {
     if (!this.manifest || !this.active) return undefined;
-    const before = this.manifest.participants.length;
+    const existing = this.manifest.participants.find((participant) => participant.id === p.id);
+    const isNewJoin = !existing || existing.left_at !== undefined;
     addParticipant(this.manifest, p);
-    if (this.manifest.participants.length > before && this.state === "recording") {
+    this.persist();
+    if (isNewJoin && this.state === "recording") {
       return `🔴 ${p.username} joined — transcription is active.`;
     }
     return undefined;
   }
 
   consent(user: { id: string; username: string }): string {
-    if (!this.manifest) throw new Error("No active session.");
+    if (!this.manifest || !this.active) throw new Error("No active session.");
     recordConsentEvent(this.manifest, {
       type: "participant-consent",
       user_id: user.id,
       username: user.username,
       note: "Explicit consent to be transcribed."
     });
+    this.persist();
     return `✅ Consent recorded for ${user.username}.`;
   }
 
   async pause(): Promise<string> {
     if (this.state !== "recording") throw new Error("Nothing is recording.");
-    await this.recorder?.pause?.();
+    if (!this.recorder?.capabilities.pauseResume || !this.recorder.pause) {
+      throw new Error("The active recorder does not support pausing.");
+    }
+    await this.recorder.pause();
     this.transition("paused", "recording-degraded");
     return "⏸️ Recording paused.";
   }
 
   async resume(): Promise<string> {
     if (this.state !== "paused") throw new Error("Session is not paused.");
-    await this.recorder?.resume?.();
+    if (!this.recorder?.capabilities.pauseResume || !this.recorder.resume) {
+      throw new Error("The active recorder does not support resuming.");
+    }
+    await this.recorder.resume();
     this.transition("recording", "recording");
     return "▶️ Recording resumed.";
   }
