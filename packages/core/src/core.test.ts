@@ -17,7 +17,7 @@ import {
   type TranscriptSegment
 } from "./index.js";
 
-const at = new Date("2026-06-22T14:32:00Z");
+const at = new Date(2026, 5, 22, 14, 32, 0, 0);
 
 describe("session naming", () => {
   it("slugifies titles", () => {
@@ -26,16 +26,23 @@ describe("session naming", () => {
     expect(slugify("")).toBe("session");
   });
 
-  it("builds a session id with date + source + slug", () => {
-    expect(buildSessionId({ title: "Engineering Standup", source: "discord", at })).toBe(
-      "2026-06-22-discord-engineering-standup"
-    );
-  });
+	it("builds a session id with date + source + slug", () => {
+		expect(buildSessionId({ title: "Engineering Standup", source: "discord", at })).toBe(
+			"2026-06-22-143200000-discord-engineering-standup"
+		);
+	});
 
   it("builds a dated session folder with a time suffix", () => {
     const folder = buildSessionFolder({ title: "Engineering Standup", source: "discord", at });
-    expect(folder).toMatch(/^2026-06-22\/discord-engineering-standup-\d{4}$/);
-  });
+		expect(folder).toBe("2026-06-22/discord-engineering-standup-143200000");
+	});
+
+	it("does not collide for sessions started in the same minute", () => {
+		const later = new Date(2026, 5, 22, 14, 32, 0, 1);
+		expect(buildSessionId({ title: "Engineering Standup", source: "discord", at })).not.toBe(
+			buildSessionId({ title: "Engineering Standup", source: "discord", at: later })
+		);
+	});
 });
 
 describe("manifest", () => {
@@ -90,10 +97,15 @@ describe("timestamps", () => {
     expect(parseTimestamp("3:12")).toBe(192);
   });
 
-  it("formats vtt and srt fractional timestamps", () => {
+	it("formats vtt and srt fractional timestamps", () => {
     expect(toVttTimestamp(192.5)).toBe("00:03:12.500");
     expect(toSrtTimestamp(192.5)).toBe("00:03:12,500");
-  });
+	});
+
+	it("carries rounded milliseconds into the next second", () => {
+		expect(toVttTimestamp(1.9996)).toBe("00:00:02.000");
+		expect(toSrtTimestamp(59.9996)).toBe("00:01:00,000");
+	});
 });
 
 describe("jsonl", () => {

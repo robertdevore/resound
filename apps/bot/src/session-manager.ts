@@ -105,7 +105,8 @@ export class SessionManager {
     const transcriber = this.makeTranscriber();
     const requestedMode = this.mode === "auto" ? "auto" : this.mode;
     const at = new Date();
-    const selectedMode = normalizeRecorderMode(recorderOverride?.mode ?? this.makeRecorder([ctx.startedBy]).mode);
+		const recorder = recorderOverride ?? this.makeRecorder([ctx.startedBy]);
+		const selectedMode = normalizeRecorderMode(recorder.mode);
     this.manifest = createManifest({
       title,
       source: "discord",
@@ -133,7 +134,7 @@ export class SessionManager {
     });
     addParticipant(this.manifest, ctx.startedBy);
 
-    this.recorder = recorderOverride ?? this.makeRecorder([ctx.startedBy]);
+		this.recorder = recorder;
     this.manifest.recorder = {
       id: this.recorder.id ?? normalizeRecorderMode(this.recorder.mode),
       mode: normalizeRecorderMode(this.recorder.mode)

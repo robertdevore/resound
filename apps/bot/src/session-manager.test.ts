@@ -12,6 +12,36 @@ function envFor(): NodeJS.ProcessEnv {
 }
 
 describe("SessionManager (mock mode)", () => {
+	it("creates exactly one recorder for a session", async () => {
+		let calls = 0;
+		const recorder: Recorder = {
+			capabilities: {
+				mixedAudio: true,
+				separateSpeakerTracks: false,
+				reliableSpeakerIdentity: false,
+				liveParticipantEvents: false,
+				pauseResume: false,
+				localOnly: true,
+				reconnectSupport: false,
+				healthMetrics: false,
+				strictConsentCompatible: false
+			},
+			mode: "mock",
+			async start() {},
+			async stop() { return []; }
+		};
+		const mgr = new SessionManager(envFor(), () => {
+			calls += 1;
+			return recorder;
+		});
+		await mgr.start("Standup", {
+			guildId: "g1",
+			channelId: "c1",
+			startedBy: { id: "u1", username: "robert" }
+		});
+		expect(calls).toBe(1);
+	});
+
   it("starts, announces, records consent, and refuses double-start", async () => {
     const mgr = new SessionManager(envFor());
     const { announce } = await mgr.start("Standup", {

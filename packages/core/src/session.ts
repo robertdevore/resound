@@ -28,7 +28,9 @@ function datePart(d: Date): string {
 }
 
 function timePart(d: Date): string {
-  return `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+	return `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(
+		d.getSeconds()
+	).padStart(2, "0")}${String(d.getMilliseconds()).padStart(3, "0")}`;
 }
 
 /** The canonical default output file names. */
@@ -49,16 +51,16 @@ export interface BuildSessionIdOptions {
   at?: Date;
 }
 
-/** `2026-06-22-discord-engineering-standup` */
+/** `2026-06-22-143200000-discord-engineering-standup` */
 export function buildSessionId(opts: BuildSessionIdOptions): string {
   const at = opts.at ?? new Date();
   const source = opts.source ?? "discord";
-  return `${datePart(at)}-${source}-${slugify(opts.title)}`;
+	return `${datePart(at)}-${timePart(at)}-${source}-${slugify(opts.title)}`;
 }
 
 /**
  * Relative session folder, e.g.
- * `2026-06-22/discord-engineering-standup-1432`.
+ * `2026-06-22/discord-engineering-standup-143200000`.
  */
 export function buildSessionFolder(opts: BuildSessionIdOptions): string {
   const at = opts.at ?? new Date();
