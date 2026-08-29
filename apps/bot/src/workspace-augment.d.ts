@@ -7,7 +7,12 @@ export {};
 declare module "@resound/audio" {
   interface Recorder {
     readonly id?: string;
-    readonly mode: "mock" | "local-capture" | "discord-native" | "system" | "discord";
+    readonly mode:
+      | "mock"
+      | "local-capture"
+      | "discord-native"
+      | "system"
+      | "discord";
     preflight?: (context: {
       sessionDir: string;
       outputDir?: string;

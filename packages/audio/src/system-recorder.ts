@@ -10,7 +10,7 @@ import type {
   RecorderPreflightResult,
   RecorderStartOptions,
   RecordingContext,
-  RecordingHealth
+  RecordingHealth,
 } from "./types.js";
 
 export interface SystemRecorderOptions {
@@ -32,7 +32,10 @@ function canWriteDir(dir: string): { ok: boolean; detail: string } {
     fs.accessSync(dir, fs.constants.W_OK);
     return { ok: true, detail: `Writable: ${dir}` };
   } catch (err) {
-    return { ok: false, detail: `Cannot write to ${dir}: ${(err as Error).message}` };
+    return {
+      ok: false,
+      detail: `Cannot write to ${dir}: ${(err as Error).message}`,
+    };
   }
 }
 
@@ -40,14 +43,22 @@ function commandExists(command: string): { ok: boolean; detail: string } {
   const result = spawnSync(command, ["-version"], { encoding: "utf8" });
   if (result.error) {
     const code = (result.error as NodeJS.ErrnoException).code;
-    if (code === "ENOENT") return { ok: false, detail: `Command not found: ${command}` };
-    return { ok: false, detail: `Failed to execute ${command}: ${result.error.message}` };
+    if (code === "ENOENT")
+      return { ok: false, detail: `Command not found: ${command}` };
+    return {
+      ok: false,
+      detail: `Failed to execute ${command}: ${result.error.message}`,
+    };
   }
   return { ok: true, detail: `Detected ${command}` };
 }
 
 export function buildSystemFfmpegArgs(
-  opts: SystemRecorderOptions & { outFile: string; systemOutFile?: string; micOutFile?: string }
+  opts: SystemRecorderOptions & {
+    outFile: string;
+    systemOutFile?: string;
+    micOutFile?: string;
+  },
 ): string[] {
   const rate = opts.sampleRate ?? 16000;
   const args: string[] = ["-hide_banner", "-loglevel", "error"];
@@ -56,30 +67,43 @@ export function buildSystemFfmpegArgs(
   if (opts.device) {
     inputs.push(["-f", "avfoundation", "-i", `:${opts.device}`]);
   } else {
-    if (opts.systemDevice) inputs.push(["-f", "avfoundation", "-i", `:${opts.systemDevice}`]);
-    if (opts.micDevice) inputs.push(["-f", "avfoundation", "-i", `:${opts.micDevice}`]);
+    if (opts.systemDevice)
+      inputs.push(["-f", "avfoundation", "-i", `:${opts.systemDevice}`]);
+    if (opts.micDevice)
+      inputs.push(["-f", "avfoundation", "-i", `:${opts.micDevice}`]);
   }
 
   if (inputs.length === 0) {
     throw new Error(
-      "No capture device specified. Set RESOUND_AUDIO_SYSTEM_DEVICE/RESOUND_AUDIO_MIC_DEVICE or RESOUND_AUDIO_DEVICE."
+      "No capture device specified. Set RESOUND_AUDIO_SYSTEM_DEVICE/RESOUND_AUDIO_MIC_DEVICE or RESOUND_AUDIO_DEVICE.",
     );
   }
 
   for (const input of inputs) args.push(...input);
 
   if (inputs.length > 1) {
-    const prepared = inputs.map((_, i) => `[${i}:a]aresample=${rate}:async=1:first_pts=0[in${i}]`);
+    const prepared = inputs.map(
+      (_, i) => `[${i}:a]aresample=${rate}:async=1:first_pts=0[in${i}]`,
+    );
     const labels = inputs.map((_, i) => `[in${i}]`).join("");
     args.push(
       "-filter_complex",
       `${prepared.join(";")};${labels}amix=inputs=${inputs.length}:duration=longest:normalize=0,alimiter=limit=0.95[mix]`,
       "-map",
-      "[mix]"
+      "[mix]",
     );
   }
 
-  args.push("-c:a", "pcm_s16le", "-ac", "1", "-ar", String(rate), "-y", opts.outFile);
+  args.push(
+    "-c:a",
+    "pcm_s16le",
+    "-ac",
+    "1",
+    "-ar",
+    String(rate),
+    "-y",
+    opts.outFile,
+  );
 
   // Preserve each side of a two-device capture. These tracks make it possible
   // to prove that both the call output and local microphone actually contained
@@ -105,7 +129,7 @@ export function buildSystemFfmpegArgs(
       "-ar",
       String(rate),
       "-y",
-      opts.micOutFile
+      opts.micOutFile,
     );
   }
   return args;
@@ -113,9 +137,11 @@ export function buildSystemFfmpegArgs(
 
 export function isCleanSystemRecorderClose(
   code: number | null,
-  signal: NodeJS.Signals | null
+  signal: NodeJS.Signals | null,
 ): boolean {
-  return code === 0 || code === 255 || signal === "SIGINT" || signal === "SIGTERM";
+  return (
+    code === 0 || code === 255 || signal === "SIGINT" || signal === "SIGTERM"
+  );
 }
 
 export class SystemRecorder implements Recorder {
@@ -135,8 +161,8 @@ export class SystemRecorder implements Recorder {
     requiredCommands: ["ffmpeg"],
     requiredPermissions: ["Microphone access in macOS"],
     warnings: [
-      "Local capture cannot selectively exclude one remote participant from a mixed system track."
-    ]
+      "Local capture cannot selectively exclude one remote participant from a mixed system track.",
+    ],
   };
   private child?: ChildProcess;
   private done?: Promise<string>;
@@ -155,7 +181,7 @@ export class SystemRecorder implements Recorder {
     const writable = canWriteDir(context.outputDir ?? context.sessionDir);
     const dependencies = [
       { name: ffmpeg, ok: ffmpegStatus.ok, detail: ffmpegStatus.detail },
-      { name: "output-directory", ok: writable.ok, detail: writable.detail }
+      { name: "output-directory", ok: writable.ok, detail: writable.detail },
     ];
     const warnings: string[] = [];
     const errors: string[] = [];
@@ -170,22 +196,31 @@ export class SystemRecorder implements Recorder {
     if (this.options.device) {
       selectedDevices.push({ role: "device", value: this.options.device });
     } else {
-      if (this.options.systemDevice) selectedDevices.push({ role: "system", value: this.options.systemDevice });
-      if (this.options.micDevice) selectedDevices.push({ role: "mic", value: this.options.micDevice });
+      if (this.options.systemDevice)
+        selectedDevices.push({
+          role: "system",
+          value: this.options.systemDevice,
+        });
+      if (this.options.micDevice)
+        selectedDevices.push({ role: "mic", value: this.options.micDevice });
     }
 
     if (selectedDevices.length === 0) {
       errors.push(
-        "No capture device configured. Set RESOUND_AUDIO_SYSTEM_DEVICE / RESOUND_AUDIO_MIC_DEVICE or RESOUND_AUDIO_DEVICE."
+        "No capture device configured. Set RESOUND_AUDIO_SYSTEM_DEVICE / RESOUND_AUDIO_MIC_DEVICE or RESOUND_AUDIO_DEVICE.",
       );
-      remediation.push("Run `resound audio devices` and configure the intended devices before recording.");
+      remediation.push(
+        "Run `resound audio devices` and configure the intended devices before recording.",
+      );
     }
 
     if (context.strictConsent) {
       warnings.push(
-        "Strict per-participant consent is not compatible with local mixed system capture."
+        "Strict per-participant consent is not compatible with local mixed system capture.",
       );
-      remediation.push("Use discord-native mode when selective speaker exclusion is required.");
+      remediation.push(
+        "Use discord-native mode when selective speaker exclusion is required.",
+      );
     }
 
     for (const dependency of dependencies) {
@@ -193,7 +228,8 @@ export class SystemRecorder implements Recorder {
     }
 
     return {
-      status: errors.length > 0 ? "fail" : warnings.length > 0 ? "warning" : "pass",
+      status:
+        errors.length > 0 ? "fail" : warnings.length > 0 ? "warning" : "pass",
       recorderId: this.id,
       mode: this.mode,
       summary:
@@ -206,7 +242,7 @@ export class SystemRecorder implements Recorder {
       warnings,
       errors,
       remediation,
-      selectedDevices
+      selectedDevices,
     };
   }
 
@@ -214,12 +250,14 @@ export class SystemRecorder implements Recorder {
     const paths = sessionPaths(options.sessionDir);
     fs.mkdirSync(paths.audioRaw, { recursive: true });
     this.outFile = path.join(paths.audioRaw, "recording.wav");
-    this.systemOutFile = this.options.systemDevice && this.options.micDevice
-      ? path.join(paths.audioRaw, "system.wav")
-      : undefined;
-    this.micOutFile = this.options.systemDevice && this.options.micDevice
-      ? path.join(paths.audioRaw, "microphone.wav")
-      : undefined;
+    this.systemOutFile =
+      this.options.systemDevice && this.options.micDevice
+        ? path.join(paths.audioRaw, "system.wav")
+        : undefined;
+    this.micOutFile =
+      this.options.systemDevice && this.options.micDevice
+        ? path.join(paths.audioRaw, "microphone.wav")
+        : undefined;
     this.startedAt = Date.now();
     this.paused = false;
     this.status = "recording";
@@ -229,7 +267,7 @@ export class SystemRecorder implements Recorder {
       ...this.options,
       outFile: this.outFile,
       systemOutFile: this.systemOutFile,
-      micOutFile: this.micOutFile
+      micOutFile: this.micOutFile,
     });
     const child = spawn(ffmpeg, args, { stdio: ["pipe", "ignore", "pipe"] });
     this.child = child;
@@ -240,12 +278,20 @@ export class SystemRecorder implements Recorder {
     this.done = new Promise((resolve, reject) => {
       child.on("error", (err) => {
         const e = err as NodeJS.ErrnoException;
-        if (e.code === "ENOENT") reject(new Error("ffmpeg not found. Install it: brew install ffmpeg"));
+        if (e.code === "ENOENT")
+          reject(
+            new Error("ffmpeg not found. Install it: brew install ffmpeg"),
+          );
         else reject(err);
       });
       child.on("close", (code, signal) => {
         if (isCleanSystemRecorderClose(code, signal)) resolve(this.outFile!);
-        else reject(new Error(`ffmpeg exited ${code ?? signal}: ${stderr.slice(0, 500)}`));
+        else
+          reject(
+            new Error(
+              `ffmpeg exited ${code ?? signal}: ${stderr.slice(0, 500)}`,
+            ),
+          );
       });
     });
 
@@ -253,16 +299,22 @@ export class SystemRecorder implements Recorder {
     // and macOS permission failures arrive just after spawn, so do not announce
     // a recording until it has survived that startup window.
     await Promise.race([
-      new Promise<void>((resolve) => setTimeout(resolve, this.options.startupProbeMs ?? 750)),
+      new Promise<void>((resolve) =>
+        setTimeout(resolve, this.options.startupProbeMs ?? 750),
+      ),
       this.done.then(
-        () => Promise.reject(new Error("ffmpeg stopped before audio capture became ready.")),
-        (err) => Promise.reject(err)
-      )
+        () =>
+          Promise.reject(
+            new Error("ffmpeg stopped before audio capture became ready."),
+          ),
+        (err) => Promise.reject(err),
+      ),
     ]);
   }
 
   pause(): void {
-    if (!this.child || this.child.exitCode !== null) throw new Error("System recorder is not running.");
+    if (!this.child || this.child.exitCode !== null)
+      throw new Error("System recorder is not running.");
     if (!this.paused) {
       this.child.kill("SIGSTOP");
       this.paused = true;
@@ -271,7 +323,8 @@ export class SystemRecorder implements Recorder {
   }
 
   resume(): void {
-    if (!this.child || this.child.exitCode !== null) throw new Error("System recorder is not running.");
+    if (!this.child || this.child.exitCode !== null)
+      throw new Error("System recorder is not running.");
     if (this.paused) {
       this.child.kill("SIGCONT");
       this.paused = false;
@@ -296,7 +349,10 @@ export class SystemRecorder implements Recorder {
     }
 
     const file = await this.done;
-    const durationSeconds = Math.max(0, Math.round((Date.now() - this.startedAt) / 1000));
+    const durationSeconds = Math.max(
+      0,
+      Math.round((Date.now() - this.startedAt) / 1000),
+    );
     this.child = undefined;
     this.done = undefined;
     this.paused = false;
@@ -308,8 +364,8 @@ export class SystemRecorder implements Recorder {
         username: "Local Capture",
         path: file,
         startSeconds: 0,
-        durationSeconds
-      }
+        durationSeconds,
+      },
     ];
   }
 
@@ -318,7 +374,7 @@ export class SystemRecorder implements Recorder {
     const reports: string[] = [];
     const inputs: Array<[string, string | undefined]> = [
       ["meeting/system audio", this.systemOutFile],
-      ["local microphone", this.micOutFile]
+      ["local microphone", this.micOutFile],
     ];
     for (const [label, file] of inputs) {
       if (!file || !fs.existsSync(file)) continue;
@@ -340,28 +396,45 @@ export class SystemRecorder implements Recorder {
               : "Local capture idle.",
       warnings: this.capabilities.warnings ?? [],
       metrics: {
-        elapsedSeconds: this.startedAt > 0 ? Math.max(0, Math.round((Date.now() - this.startedAt) / 1000)) : 0
-      }
+        elapsedSeconds:
+          this.startedAt > 0
+            ? Math.max(0, Math.round((Date.now() - this.startedAt) / 1000))
+            : 0,
+      },
     };
   }
 }
 
-async function probeLevel(ffmpeg: string, file: string, label: string): Promise<string> {
+async function probeLevel(
+  ffmpeg: string,
+  file: string,
+  label: string,
+): Promise<string> {
   return await new Promise((resolve) => {
-    const child = spawn(ffmpeg, ["-hide_banner", "-i", file, "-af", "volumedetect", "-f", "null", "-"], {
-      stdio: ["ignore", "ignore", "pipe"]
-    });
+    const child = spawn(
+      ffmpeg,
+      ["-hide_banner", "-i", file, "-af", "volumedetect", "-f", "null", "-"],
+      {
+        stdio: ["ignore", "ignore", "pipe"],
+      },
+    );
     let stderr = "";
     child.stderr.on("data", (data) => (stderr += String(data)));
-    child.on("error", (err) => resolve(`⚠️ ${label}: could not inspect audio (${err.message})`));
+    child.on("error", (err) =>
+      resolve(`⚠️ ${label}: could not inspect audio (${err.message})`),
+    );
     child.on("close", () => {
       const max = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/i)?.[1];
       const mean = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/i)?.[1];
       const maxDb = max === undefined ? Number.NEGATIVE_INFINITY : Number(max);
       if (!Number.isFinite(maxDb) || maxDb <= -60) {
-        resolve(`❌ ${label}: silent — check the configured device and macOS audio routing`);
+        resolve(
+          `❌ ${label}: silent — check the configured device and macOS audio routing`,
+        );
       } else {
-        resolve(`✅ ${label}: audio detected (peak ${max} dB, average ${mean ?? "unknown"} dB)`);
+        resolve(
+          `✅ ${label}: audio detected (peak ${max} dB, average ${mean ?? "unknown"} dB)`,
+        );
       }
     });
   });

@@ -22,17 +22,28 @@ export interface SessionPaths {
 }
 
 /** Build the set of well-known file paths for a session directory. */
-export function sessionPaths(dir: string, manifest?: SessionManifest): SessionPaths {
+export function sessionPaths(
+  dir: string,
+  manifest?: SessionManifest,
+): SessionPaths {
   const outputs = manifest?.outputs;
-  const outputPath = (configured: string | undefined, fallback: string): string => {
+  const outputPath = (
+    configured: string | undefined,
+    fallback: string,
+  ): string => {
     const relative = configured ?? fallback;
     if (path.isAbsolute(relative)) {
       throw new Error(`Session output path must be relative: ${relative}`);
     }
     const resolvedDir = path.resolve(dir);
     const resolved = path.resolve(resolvedDir, relative);
-    if (resolved !== resolvedDir && !resolved.startsWith(`${resolvedDir}${path.sep}`)) {
-      throw new Error(`Session output path escapes session directory: ${relative}`);
+    if (
+      resolved !== resolvedDir &&
+      !resolved.startsWith(`${resolvedDir}${path.sep}`)
+    ) {
+      throw new Error(
+        `Session output path escapes session directory: ${relative}`,
+      );
     }
     return path.join(dir, relative);
   };
@@ -46,6 +57,6 @@ export function sessionPaths(dir: string, manifest?: SessionManifest): SessionPa
     summary: outputPath(outputs?.summary, "summary.md"),
     actionItems: outputPath(outputs?.action_items, "action-items.md"),
     audioRaw: path.join(dir, "audio", "raw"),
-    audioChunks: path.join(dir, "audio", "chunks")
+    audioChunks: path.join(dir, "audio", "chunks"),
   };
 }

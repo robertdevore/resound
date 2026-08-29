@@ -4,15 +4,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadSession, validateSession } from "@resound/core";
 import { runChecks } from "@resound/kujo";
-import { createFileSession, createMockSession, parseParticipants } from "./session-runner.js";
+import {
+  createFileSession,
+  createMockSession,
+  parseParticipants,
+} from "./session-runner.js";
 
 describe("createMockSession", () => {
   it("produces a complete, valid, portable session", async () => {
     const out = fs.mkdtempSync(path.join(os.tmpdir(), "resound-cli-"));
     const session = await createMockSession({
       title: "Engineering Standup",
-      env: { RESOUND_OUTPUT_DIR: out, RESOUND_TRANSCRIBER: "mock" } as NodeJS.ProcessEnv,
-      at: new Date("2026-06-22T14:32:00Z")
+      env: {
+        RESOUND_OUTPUT_DIR: out,
+        RESOUND_TRANSCRIBER: "mock",
+      } as NodeJS.ProcessEnv,
+      at: new Date("2026-06-22T14:32:00Z"),
     });
 
     // All six canonical outputs + manifest exist.
@@ -23,7 +30,7 @@ describe("createMockSession", () => {
       "transcript.vtt",
       "transcript.srt",
       "summary.md",
-      "action-items.md"
+      "action-items.md",
     ]) {
       expect(fs.existsSync(path.join(session.dir, f)), f).toBe(true);
     }
@@ -45,7 +52,7 @@ describe("parseParticipants", () => {
     expect(parseParticipants("Robert, Ashley ,Jelena")).toEqual([
       { id: "p1", username: "Robert" },
       { id: "p2", username: "Ashley" },
-      { id: "p3", username: "Jelena" }
+      { id: "p3", username: "Jelena" },
     ]);
     expect(parseParticipants(undefined)).toEqual([]);
   });
@@ -60,14 +67,19 @@ describe("createFileSession", () => {
       title: "Recorded Meeting",
       audioFile: audio,
       participants: parseParticipants("Robert,Ashley"),
-      env: { RESOUND_OUTPUT_DIR: out, RESOUND_TRANSCRIBER: "mock" } as NodeJS.ProcessEnv,
-      at: new Date("2026-06-22T15:00:00Z")
+      env: {
+        RESOUND_OUTPUT_DIR: out,
+        RESOUND_TRANSCRIBER: "mock",
+      } as NodeJS.ProcessEnv,
+      at: new Date("2026-06-22T15:00:00Z"),
     });
     expect(session.manifest.source).toBe("file");
     expect(session.segments.length).toBeGreaterThan(0);
     expect(validateSession(session.dir).valid).toBe(true);
     // Source audio is referenced inside the session for provenance.
-    expect(fs.existsSync(path.join(session.dir, "audio", "raw", "meeting.wav"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(session.dir, "audio", "raw", "meeting.wav")),
+    ).toBe(true);
   });
 
   it("errors clearly when the audio file is missing", async () => {
@@ -75,8 +87,8 @@ describe("createFileSession", () => {
       createFileSession({
         title: "x",
         audioFile: "/no/such/file.wav",
-        env: { RESOUND_TRANSCRIBER: "mock" } as NodeJS.ProcessEnv
-      })
+        env: { RESOUND_TRANSCRIBER: "mock" } as NodeJS.ProcessEnv,
+      }),
     ).rejects.toThrow(/not found/);
   });
 });

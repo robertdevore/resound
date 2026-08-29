@@ -11,7 +11,10 @@ export interface StrataOptions {
   command?: string;
   env?: NodeJS.ProcessEnv;
   /** Injectable runner for testing. Returns the process exit code. */
-  run?: (cmd: string, args: string[]) => Promise<{ code: number; stderr: string }>;
+  run?: (
+    cmd: string,
+    args: string[],
+  ) => Promise<{ code: number; stderr: string }>;
 }
 
 /**
@@ -26,7 +29,9 @@ export class StrataSink implements Sink {
   async send(session: TranscriptSession): Promise<SinkResult> {
     const env = this.options.env ?? process.env;
     const template =
-      this.options.command ?? env.STRATA_INGEST_COMMAND ?? "strata notes add --file";
+      this.options.command ??
+      env.STRATA_INGEST_COMMAND ??
+      "strata notes add --file";
     const mdPath = sessionPaths(session.dir, session.manifest).markdown;
 
     if (!fs.existsSync(mdPath)) {
@@ -34,7 +39,7 @@ export class StrataSink implements Sink {
         sink: this.name,
         ok: false,
         skipped: true,
-        detail: `No transcript.md at ${mdPath}. Run "resound export <session> --format md" first.`
+        detail: `No transcript.md at ${mdPath}. Run "resound export <session> --format md" first.`,
       };
     }
 
@@ -46,12 +51,16 @@ export class StrataSink implements Sink {
     try {
       const { code, stderr } = await runner(cmd, args);
       if (code === 0) {
-        return { sink: this.name, ok: true, detail: `Ran: ${cmd} ${args.join(" ")}` };
+        return {
+          sink: this.name,
+          ok: true,
+          detail: `Ran: ${cmd} ${args.join(" ")}`,
+        };
       }
       return {
         sink: this.name,
         ok: false,
-        detail: `Strata command exited ${code}: ${stderr.trim()}`
+        detail: `Strata command exited ${code}: ${stderr.trim()}`,
       };
     } catch (err) {
       return {
@@ -60,13 +69,16 @@ export class StrataSink implements Sink {
         skipped: true,
         detail:
           `Could not run Strata ("${cmd}"). Strata is optional — your transcript is still at ` +
-          `${mdPath}. Install Strata or set STRATA_INGEST_COMMAND. (${(err as Error).message})`
+          `${mdPath}. Install Strata or set STRATA_INGEST_COMMAND. (${(err as Error).message})`,
       };
     }
   }
 }
 
-function defaultRunner(cmd: string, args: string[]): Promise<{ code: number; stderr: string }> {
+function defaultRunner(
+  cmd: string,
+  args: string[],
+): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";

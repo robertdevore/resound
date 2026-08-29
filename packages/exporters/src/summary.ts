@@ -7,15 +7,18 @@ import type { SessionManifest, TranscriptSegment } from "@resound/core";
  */
 export function buildSummary(
   manifest: SessionManifest,
-  segments: TranscriptSegment[]
+  segments: TranscriptSegment[],
 ): string {
   if (segments.length === 0) return "_No transcript content to summarize._";
 
   const speakers = [...new Set(segments.map((s) => s.speaker))];
-  const totalWords = segments.reduce((n, s) => n + s.text.split(/\s+/).filter(Boolean).length, 0);
+  const totalWords = segments.reduce(
+    (n, s) => n + s.text.split(/\s+/).filter(Boolean).length,
+    0,
+  );
   const lines: string[] = [];
   lines.push(
-    `Conversation "${manifest.title}" with ${speakers.length} speaker(s): ${speakers.join(", ")}.`
+    `Conversation "${manifest.title}" with ${speakers.length} speaker(s): ${speakers.join(", ")}.`,
   );
   lines.push(`${segments.length} segment(s), ~${totalWords} words.`);
   lines.push("");
@@ -34,7 +37,7 @@ const ACTION_HINTS = [
   /\btodo\b/i,
   /\bnext step\b/i,
   /\bassign(?:ed)?\b/i,
-  /\bby (?:tomorrow|monday|friday|next week|eod)\b/i
+  /\bby (?:tomorrow|monday|friday|next week|eod)\b/i,
 ];
 
 /** Extract candidate action items via keyword heuristics. */
@@ -63,7 +66,7 @@ export function buildActionItemsMarkdown(items: string[]): string {
 /** Render the summary Markdown file. */
 export function buildSummaryMarkdown(
   manifest: SessionManifest,
-  segments: TranscriptSegment[]
+  segments: TranscriptSegment[],
 ): string {
   return `# Summary: ${manifest.title}\n\n${buildSummary(manifest, segments)}\n`;
 }

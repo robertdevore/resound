@@ -1,6 +1,9 @@
 #!/usr/bin/env node
+process.umask(0o077);
 try {
-  (process as NodeJS.Process & { loadEnvFile?: (p?: string) => void }).loadEnvFile?.();
+  (
+    process as NodeJS.Process & { loadEnvFile?: (p?: string) => void }
+  ).loadEnvFile?.();
 } catch {
   /* no .env file — rely on the ambient environment */
 }
@@ -13,7 +16,7 @@ import {
   outputRoot,
   resolveSession,
   sessionPaths,
-  validateSession
+  validateSession,
 } from "@resound/core";
 import {
   buildActionItemsMarkdown,
@@ -23,7 +26,7 @@ import {
   toMarkdown,
   toSrt,
   toVtt,
-  writeSessionOutputs
+  writeSessionOutputs,
 } from "@resound/exporters";
 import {
   FilesystemSink,
@@ -31,22 +34,39 @@ import {
   StrataSink,
   TotalRecallSink,
   WebhookSink,
-  type Sink
+  type Sink,
 } from "@resound/sinks";
 import { runChecks } from "@resound/kujo";
-import { type Recorder, MockRecorder, SystemRecorder, DiscordRecorder } from "@resound/audio";
+import {
+  type Recorder,
+  MockRecorder,
+  SystemRecorder,
+  DiscordRecorder,
+} from "@resound/audio";
 import { getTranscriber } from "@resound/transcribers";
 import os from "node:os";
-import { createFileSession, createMockSession, parseParticipants } from "./session-runner.js";
-import { isInteractiveStopInput, listAudioDevices, recordAudio } from "./record.js";
+import {
+  createFileSession,
+  createMockSession,
+  parseParticipants,
+} from "./session-runner.js";
+import {
+  isInteractiveStopInput,
+  listAudioDevices,
+  recordAudio,
+} from "./record.js";
 
 const program = new Command();
 const cliVersion = (
-  JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string }
+  JSON.parse(
+    fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { version: string }
 ).version;
 program
   .name("resound")
-  .description("Resound — portable Discord voice transcription. Conversations become memory.")
+  .description(
+    "Resound — portable Discord voice transcription. Conversations become memory.",
+  )
   .version(cliVersion);
 
 function root(): string {
@@ -93,11 +113,14 @@ function normalizeRecorderMode(input?: string): CliRecorderMode {
   }
 }
 
-function buildDoctorRecorder(mode: Exclude<CliRecorderMode, "auto">, opts: {
-  system?: string;
-  mic?: string;
-  device?: string;
-}): DoctorRecorder {
+function buildDoctorRecorder(
+  mode: Exclude<CliRecorderMode, "auto">,
+  opts: {
+    system?: string;
+    mic?: string;
+    device?: string;
+  },
+): DoctorRecorder {
   if (mode === "mock") return new MockRecorder();
   if (mode === "discord-native") {
     return new DiscordRecorder({
@@ -106,15 +129,15 @@ function buildDoctorRecorder(mode: Exclude<CliRecorderMode, "auto">, opts: {
           speaking: { on() {} },
           subscribe() {
             throw new Error("not connected");
-          }
-        }
-      }
+          },
+        },
+      },
     });
   }
   return new SystemRecorder({
     systemDevice: opts.system,
     micDevice: opts.mic,
-    device: opts.device
+    device: opts.device,
   });
 }
 
@@ -127,7 +150,10 @@ async function runDoctor(opts: {
   strictConsent?: boolean;
 }): Promise<number> {
   const requested = normalizeRecorderMode(opts.mode);
-  const transcriber = getTranscriber({ name: opts.provider, env: process.env }) as DoctorTranscriber;
+  const transcriber = getTranscriber({
+    name: opts.provider,
+    env: process.env,
+  }) as DoctorTranscriber;
   const modes: Exclude<CliRecorderMode, "auto">[] =
     requested === "auto" ? ["discord-native", "local-capture"] : [requested];
   const outputDir = root();
@@ -138,37 +164,49 @@ async function runDoctor(opts: {
     const recorderResult = await recorder.preflight?.({
       sessionDir: path.join(outputDir, "_doctor"),
       outputDir,
-      strictConsent: opts.strictConsent
+      strictConsent: opts.strictConsent,
     });
     results.push({ mode, recorder, recorderResult });
     if (requested !== "auto") break;
     if (recorderResult?.status === "pass") break;
   }
 
-  const chosen = results.find((result) => result.recorderResult?.status !== "fail") ?? results[0]!;
+  const chosen =
+    results.find((result) => result.recorderResult?.status !== "fail") ??
+    results[0]!;
   const transcriberResult = await transcriber.preflight?.();
   console.log(`Recorder request: ${requested}`);
   console.log(`Recorder selected: ${chosen.mode}`);
   if (chosen.recorderResult) {
-    console.log(`Recorder preflight: ${chosen.recorderResult.status.toUpperCase()} — ${chosen.recorderResult.summary}`);
+    console.log(
+      `Recorder preflight: ${chosen.recorderResult.status.toUpperCase()} — ${chosen.recorderResult.summary}`,
+    );
     for (const dep of chosen.recorderResult.dependencies) {
       console.log(`  [${dep.ok ? "ok" : "fail"}] ${dep.name}: ${dep.detail}`);
     }
-    for (const warning of chosen.recorderResult.warnings) console.log(`  warn: ${warning}`);
-    for (const error of chosen.recorderResult.errors) console.log(`  err:  ${error}`);
-    for (const step of chosen.recorderResult.remediation) console.log(`  fix:  ${step}`);
+    for (const warning of chosen.recorderResult.warnings)
+      console.log(`  warn: ${warning}`);
+    for (const error of chosen.recorderResult.errors)
+      console.log(`  err:  ${error}`);
+    for (const step of chosen.recorderResult.remediation)
+      console.log(`  fix:  ${step}`);
   }
 
   if (transcriberResult) {
     console.log(
-      `Transcriber preflight: ${transcriberResult.status.toUpperCase()} — ${transcriberResult.provider} ${transcriberResult.model}`
+      `Transcriber preflight: ${transcriberResult.status.toUpperCase()} — ${transcriberResult.provider} ${transcriberResult.model}`,
     );
-    for (const warning of transcriberResult.warnings) console.log(`  warn: ${warning}`);
-    for (const error of transcriberResult.errors) console.log(`  err:  ${error}`);
-    for (const step of transcriberResult.remediation) console.log(`  fix:  ${step}`);
+    for (const warning of transcriberResult.warnings)
+      console.log(`  warn: ${warning}`);
+    for (const error of transcriberResult.errors)
+      console.log(`  err:  ${error}`);
+    for (const step of transcriberResult.remediation)
+      console.log(`  fix:  ${step}`);
   }
 
-  const ok = chosen.recorderResult?.status !== "fail" && transcriberResult?.status !== "fail";
+  const ok =
+    chosen.recorderResult?.status !== "fail" &&
+    transcriberResult?.status !== "fail";
   console.log(ok ? "\n✓ doctor passed" : "\n✗ doctor failed");
   return ok ? 0 : 1;
 }
@@ -191,10 +229,14 @@ program
     const keep = path.join(dir, ".gitkeep");
     if (!fs.existsSync(keep)) fs.writeFileSync(keep, "");
     console.log(`Initialized Resound output dir: ${dir}`);
-    console.log("Next: copy .env.example to .env, then `resound mock \"My First Session\"`.");
+    console.log(
+      'Next: copy .env.example to .env, then `resound mock "My First Session"`.',
+    );
   });
 
-const sessions = program.command("sessions").description("Inspect local transcript sessions");
+const sessions = program
+  .command("sessions")
+  .description("Inspect local transcript sessions");
 
 sessions
   .command("list")
@@ -209,7 +251,7 @@ sessions
       try {
         const { manifest, segments } = loadSession(dir);
         console.log(
-          `${manifest.session_id}\t${segments.length} segs\t${path.relative(root(), dir)}`
+          `${manifest.session_id}\t${segments.length} segs\t${path.relative(root(), dir)}`,
         );
       } catch {
         console.log(`(unreadable)\t${dir}`);
@@ -227,9 +269,13 @@ sessions
     console.log(`source:       ${manifest.source}`);
     console.log(`started:      ${manifest.started_at}`);
     console.log(`ended:        ${manifest.ended_at || "(in progress)"}`);
-    console.log(`participants: ${manifest.participants.map((p) => p.username).join(", ") || "—"}`);
+    console.log(
+      `participants: ${manifest.participants.map((p) => p.username).join(", ") || "—"}`,
+    );
     console.log(`consent:      ${manifest.consent_events.length} event(s)`);
-    console.log(`transcriber:  ${manifest.transcriber.provider} ${manifest.transcriber.model}`);
+    console.log(
+      `transcriber:  ${manifest.transcriber.provider} ${manifest.transcriber.model}`,
+    );
     console.log(`segments:     ${segments.length}`);
     console.log("");
     for (const seg of segments.slice(0, 5)) {
@@ -259,7 +305,7 @@ program
       case "markdown":
         content = toMarkdown(manifest, segments, {
           summary: buildSummary(manifest, segments),
-          actionItems: extractActionItems(segments)
+          actionItems: extractActionItems(segments),
         });
         break;
       case "jsonl":
@@ -308,7 +354,9 @@ program
 
 program
   .command("validate <session>")
-  .description("Validate a session folder (manifest, consent, outputs, Kujo checks)")
+  .description(
+    "Validate a session folder (manifest, consent, outputs, Kujo checks)",
+  )
   .action((ref: string) => {
     const dir = mustResolve(ref);
     const result = validateSession(dir);
@@ -326,13 +374,17 @@ program
     process.exit(ok ? 0 : 1);
   });
 
-const sink = program.command("sink").description("Send a session to an optional downstream sink");
+const sink = program
+  .command("sink")
+  .description("Send a session to an optional downstream sink");
 
 async function runSink(s: Sink, ref: string): Promise<void> {
   const dir = mustResolve(ref);
   const session = loadSession(dir);
   const result = await s.send(session);
-  console.log(`[${result.ok ? "ok" : result.skipped ? "skip" : "fail"}] ${result.sink}: ${result.detail}`);
+  console.log(
+    `[${result.ok ? "ok" : result.skipped ? "skip" : "fail"}] ${result.sink}: ${result.detail}`,
+  );
   process.exit(result.ok ? 0 : 1);
 }
 
@@ -341,28 +393,34 @@ sink
   .description("Push transcript.md into Strata (optional; fails gracefully)")
   .option("-c, --command <cmd>", "Override the Strata ingest command")
   .action((ref: string, opts: { command?: string }) =>
-    runSink(new StrataSink({ command: opts.command }), ref)
+    runSink(new StrataSink({ command: opts.command }), ref),
   );
 
 sink
   .command("totalrecall <session>")
-  .description("Ingest the session folder into TotalRecall (optional/scaffolded)")
+  .description(
+    "Ingest the session folder into TotalRecall (optional/scaffolded)",
+  )
   .option("-c, --command <cmd>", "Override the TotalRecall ingest command")
   .action((ref: string, opts: { command?: string }) =>
-    runSink(new TotalRecallSink({ command: opts.command }), ref)
+    runSink(new TotalRecallSink({ command: opts.command }), ref),
   );
 
 sink
   .command("webhook <session>")
   .description("POST the session as JSON to a webhook URL")
   .requiredOption("-u, --url <url>", "Webhook URL")
-  .action((ref: string, opts: { url: string }) => runSink(new WebhookSink({ url: opts.url }), ref));
+  .action((ref: string, opts: { url: string }) =>
+    runSink(new WebhookSink({ url: opts.url }), ref),
+  );
 
 sink
   .command("filesystem <session>")
   .description("Copy portable artifacts into a destination directory")
   .requiredOption("-d, --dest <dir>", "Destination directory")
-  .action((ref: string, opts: { dest: string }) => runSink(new FilesystemSink(opts.dest), ref));
+  .action((ref: string, opts: { dest: string }) =>
+    runSink(new FilesystemSink(opts.dest), ref),
+  );
 
 sink
   .command("stdout <session>")
@@ -371,61 +429,91 @@ sink
 
 program
   .command("transcribe <audioFile>")
-  .description("Transcribe a recorded audio file into a full session (real provider; no Discord needed)")
+  .description(
+    "Transcribe a recorded audio file into a full session (real provider; no Discord needed)",
+  )
   .requiredOption("-t, --title <title>", "Session title")
-  .option("-p, --provider <provider>", "Override RESOUND_TRANSCRIBER (e.g. openai)")
+  .option(
+    "-p, --provider <provider>",
+    "Override RESOUND_TRANSCRIBER (e.g. openai)",
+  )
   .option("--participants <csv>", "Comma-separated participant names")
   .option("-l, --language <lang>", "Language hint, e.g. en")
   .action(
     async (
       audioFile: string,
-      opts: { title: string; provider?: string; participants?: string; language?: string }
+      opts: {
+        title: string;
+        provider?: string;
+        participants?: string;
+        language?: string;
+      },
     ) => {
       const session = await createFileSession({
         title: opts.title,
         audioFile,
         provider: opts.provider,
         participants: parseParticipants(opts.participants),
-        language: opts.language
+        language: opts.language,
       });
       console.log(`Transcribed ${audioFile} → ${session.dir}`);
-      console.log(`  provider: ${session.manifest.transcriber.provider} ${session.manifest.transcriber.model}`);
+      console.log(
+        `  provider: ${session.manifest.transcriber.provider} ${session.manifest.transcriber.model}`,
+      );
       console.log(`  segments: ${session.segments.length}`);
       console.log(`Validate: resound validate '${path.basename(session.dir)}'`);
-    }
+    },
   );
 
 program
   .command("doctor")
   .description("Run recorder and transcriber preflight checks")
-  .option("-m, --mode <mode>", "mock | local-capture | discord-native | auto", process.env.RESOUND_BOT_MODE ?? "auto")
+  .option(
+    "-m, --mode <mode>",
+    "mock | local-capture | discord-native | auto",
+    process.env.RESOUND_BOT_MODE ?? "auto",
+  )
   .option("--system <device>", "avfoundation system/call audio device")
   .option("--mic <device>", "avfoundation microphone device")
   .option("--device <device>", "single local input device")
   .option("-p, --provider <provider>", "override RESOUND_TRANSCRIBER")
-  .option("--strict-consent", "treat strict per-participant consent as required", false)
-  .action(async (opts: {
-    mode?: string;
-    system?: string;
-    mic?: string;
-    device?: string;
-    provider?: string;
-    strictConsent?: boolean;
-  }) => {
-    process.exit(await runDoctor(opts));
-  });
+  .option(
+    "--strict-consent",
+    "treat strict per-participant consent as required",
+    false,
+  )
+  .action(
+    async (opts: {
+      mode?: string;
+      system?: string;
+      mic?: string;
+      device?: string;
+      provider?: string;
+      strictConsent?: boolean;
+    }) => {
+      process.exit(await runDoctor(opts));
+    },
+  );
 
-const audio = program.command("audio").description("Audio device inspection and local capture helpers");
+const audio = program
+  .command("audio")
+  .description("Audio device inspection and local capture helpers");
 
 function printDevices(): void {
   const devices = listAudioDevices();
   if (devices.length === 0) {
-    console.log("No audio devices found (is ffmpeg installed? `brew install ffmpeg`).");
+    console.log(
+      "No audio devices found (is ffmpeg installed? `brew install ffmpeg`).",
+    );
     return;
   }
-  console.log("Audio input devices (use the index or exact name with `resound record`):");
+  console.log(
+    "Audio input devices (use the index or exact name with `resound record`):",
+  );
   for (const d of devices) console.log(`  [${d.index}] ${d.name}`);
-  console.log("\nTip: capture the call output device (for example BlackHole) with --system and your mic with --mic.");
+  console.log(
+    "\nTip: capture the call output device (for example BlackHole) with --system and your mic with --mic.",
+  );
 }
 
 audio
@@ -435,18 +523,37 @@ audio
 
 program
   .command("devices")
-  .description("List macOS audio input devices (ffmpeg/avfoundation) for `resound record`")
+  .description(
+    "List macOS audio input devices (ffmpeg/avfoundation) for `resound record`",
+  )
   .action(printDevices);
 
 program
   .command("record")
-  .description("Record macOS system audio + mic, then transcribe into a session (the real capture path)")
+  .description(
+    "Record macOS system audio + mic, then transcribe into a session (the real capture path)",
+  )
   .requiredOption("-t, --title <title>", "Session title")
-  .option("--system <device>", "avfoundation device for call audio (e.g. BlackHole index)", process.env.RESOUND_AUDIO_SYSTEM_DEVICE)
-  .option("--mic <device>", "avfoundation device for your microphone", process.env.RESOUND_AUDIO_MIC_DEVICE)
+  .option(
+    "--system <device>",
+    "avfoundation device for call audio (e.g. BlackHole index)",
+    process.env.RESOUND_AUDIO_SYSTEM_DEVICE,
+  )
+  .option(
+    "--mic <device>",
+    "avfoundation device for your microphone",
+    process.env.RESOUND_AUDIO_MIC_DEVICE,
+  )
   .option("--device <device>", "single capture device instead of system+mic")
-  .option("-d, --duration <seconds>", "auto-stop after N seconds (default: until Enter/q)", (v) => parseInt(v, 10))
-  .option("-p, --provider <provider>", "override RESOUND_TRANSCRIBER (e.g. local-whisper)")
+  .option(
+    "-d, --duration <seconds>",
+    "auto-stop after N seconds (default: until Enter/q)",
+    (v) => parseInt(v, 10),
+  )
+  .option(
+    "-p, --provider <provider>",
+    "override RESOUND_TRANSCRIBER (e.g. local-whisper)",
+  )
   .option("--participants <csv>", "comma-separated participant names")
   .option("-l, --language <lang>", "language hint, e.g. en")
   .option("--preflight", "run preflight only; do not start recording", false)
@@ -469,23 +576,26 @@ program
             system: opts.system,
             mic: opts.mic,
             device: opts.device,
-            provider: opts.provider
-          })
+            provider: opts.provider,
+          }),
         );
       }
       if (!opts.system && !opts.mic && !opts.device) {
         console.error(
-          "No capture device given. Run `resound audio devices`, then pass --system <idx> and/or --mic <idx> (or --device <idx>)."
+          "No capture device given. Run `resound audio devices`, then pass --system <idx> and/or --mic <idx> (or --device <idx>).",
         );
         process.exit(1);
       }
-      const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "resound-rec-")), "recording.wav");
+      const tmp = path.join(
+        fs.mkdtempSync(path.join(os.tmpdir(), "resound-rec-")),
+        "recording.wav",
+      );
       const rec = recordAudio({
         outFile: tmp,
         systemDevice: opts.system,
         micDevice: opts.mic,
         device: opts.device,
-        durationSec: opts.duration
+        durationSec: opts.duration,
       });
 
       let cleanupStopControls = () => {};
@@ -528,19 +638,23 @@ program
         audioFile: tmp,
         provider: opts.provider,
         participants: parseParticipants(opts.participants),
-        language: opts.language
+        language: opts.language,
       });
       console.log(`Session: ${session.dir}`);
-      console.log(`  provider: ${session.manifest.transcriber.provider} ${session.manifest.transcriber.model}`);
+      console.log(
+        `  provider: ${session.manifest.transcriber.provider} ${session.manifest.transcriber.model}`,
+      );
       console.log(`  segments: ${session.segments.length}`);
       console.log(`Validate: resound validate '${path.basename(session.dir)}'`);
       process.exit(0);
-    }
+    },
   );
 
 program
   .command("mock <title>")
-  .description("Create a complete mock session (record -> transcribe -> export)")
+  .description(
+    "Create a complete mock session (record -> transcribe -> export)",
+  )
   .action(async (title: string) => {
     const session = await createMockSession({ title });
     console.log(`Created mock session: ${session.dir}`);

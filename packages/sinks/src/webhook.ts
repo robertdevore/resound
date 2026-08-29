@@ -28,30 +28,37 @@ export class WebhookSink implements Sink {
       session_id: session.manifest.session_id,
       manifest: session.manifest,
       segments: session.segments,
-      markdown
+      markdown,
     };
 
     const doFetch = this.options.fetchImpl ?? fetch;
     try {
       const res = await doFetch(this.options.url, {
         method: "POST",
-        headers: { "content-type": "application/json", ...(this.options.headers ?? {}) },
-        body: JSON.stringify(payload)
+        headers: {
+          "content-type": "application/json",
+          ...(this.options.headers ?? {}),
+        },
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         return {
           sink: this.name,
           ok: false,
-          detail: `POST ${this.options.url} -> ${res.status}`
+          detail: `POST ${this.options.url} -> ${res.status}`,
         };
       }
-      return { sink: this.name, ok: true, detail: `POST ${this.options.url} -> ${res.status}` };
+      return {
+        sink: this.name,
+        ok: true,
+        detail: `POST ${this.options.url} -> ${res.status}`,
+      };
     } catch (err) {
       return {
         sink: this.name,
         ok: false,
         skipped: true,
-        detail: `Webhook request failed: ${(err as Error).message}`
+        detail: `Webhook request failed: ${(err as Error).message}`,
       };
     }
   }

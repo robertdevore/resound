@@ -8,7 +8,7 @@ import type {
   RecorderPreflightResult,
   RecorderStartOptions,
   RecordingContext,
-  RecordingHealth
+  RecordingHealth,
 } from "./types.js";
 import { pcmDurationSeconds, pcmToWav } from "./wav.js";
 
@@ -62,10 +62,12 @@ export class DiscordRecorder implements Recorder {
     strictConsentCompatible: true,
     supportedPlatforms: ["darwin", "linux", "win32"],
     requiredCommands: [],
-    requiredPermissions: ["Discord Connect/Speak/Use Voice Activity permissions"],
+    requiredPermissions: [
+      "Discord Connect/Speak/Use Voice Activity permissions",
+    ],
     warnings: [
-      "Live Discord receive still requires live verification against the installed @discordjs/voice stack."
-    ]
+      "Live Discord receive still requires live verification against the installed @discordjs/voice stack.",
+    ],
   };
   private readonly connection: VoiceConnectionLike;
   private readonly resolveUsername: (userId: string) => string;
@@ -84,9 +86,11 @@ export class DiscordRecorder implements Recorder {
     this.silenceMs = opts.silenceMs ?? 1000;
   }
 
-  async preflight(_context: RecordingContext): Promise<RecorderPreflightResult> {
+  async preflight(
+    _context: RecordingContext,
+  ): Promise<RecorderPreflightResult> {
     const warnings = [
-      "Discord-native capture requires optional voice receive dependencies and live DAVE verification."
+      "Discord-native capture requires optional voice receive dependencies and live DAVE verification.",
     ];
     const errors: string[] = [];
     try {
@@ -106,14 +110,19 @@ export class DiscordRecorder implements Recorder {
         {
           name: "discord-voice-deps",
           ok: errors.length === 0,
-          detail: errors[0] ?? "Optional voice receive dependencies loaded."
-        }
+          detail: errors[0] ?? "Optional voice receive dependencies loaded.",
+        },
       ],
       warnings,
       errors,
-      remediation: errors.length > 0
-        ? ["Install @discordjs/voice, prism-media, and an Opus decoder, or use local-capture mode."]
-        : ["Run the live Discord verification checklist before treating this mode as production ready."]
+      remediation:
+        errors.length > 0
+          ? [
+              "Install @discordjs/voice, prism-media, and an Opus decoder, or use local-capture mode.",
+            ]
+          : [
+              "Run the live Discord verification checklist before treating this mode as production ready.",
+            ],
     };
   }
 
@@ -134,7 +143,10 @@ export class DiscordRecorder implements Recorder {
       this.active.add(userId);
 
       const opusStream = this.connection.receiver.subscribe(userId, {
-        end: { behavior: EndBehaviorType.AfterSilence, duration: this.silenceMs }
+        end: {
+          behavior: EndBehaviorType.AfterSilence,
+          duration: this.silenceMs,
+        },
       });
       const startOffset = (Date.now() - this.startedAt) / 1000;
       const pcm: Buffer[] = [];
@@ -166,14 +178,17 @@ export class DiscordRecorder implements Recorder {
     const n = this.counters.get(userId) ?? 0;
     this.counters.set(userId, n + 1);
     const username = this.resolveUsername(userId);
-    const file = path.join(this.chunkDir, `${userId}-${String(n).padStart(3, "0")}.wav`);
+    const file = path.join(
+      this.chunkDir,
+      `${userId}-${String(n).padStart(3, "0")}.wav`,
+    );
     fs.writeFileSync(file, pcmToWav(pcm, FORMAT));
     this.chunks.push({
       userId,
       username,
       path: file,
       startSeconds: startOffset,
-      durationSeconds: pcmDurationSeconds(pcm, FORMAT)
+      durationSeconds: pcmDurationSeconds(pcm, FORMAT),
     });
   }
 
@@ -199,8 +214,8 @@ export class DiscordRecorder implements Recorder {
       warnings: this.capabilities.warnings ?? [],
       metrics: {
         activeSpeakers: this.active.size,
-        chunksWritten: this.chunks.length
-      }
+        chunksWritten: this.chunks.length,
+      },
     };
   }
 }
@@ -221,19 +236,29 @@ async function loadVoiceDeps(): Promise<VoiceDeps> {
       EndBehaviorType: { AfterSilence: unknown };
     };
     const prism = (await import(prismMod)) as unknown as {
-      opus: { Decoder: new (o: { rate: number; channels: number; frameSize: number }) => NodeJS.ReadWriteStream & NodeJS.EventEmitter };
+      opus: {
+        Decoder: new (o: {
+          rate: number;
+          channels: number;
+          frameSize: number;
+        }) => NodeJS.ReadWriteStream & NodeJS.EventEmitter;
+      };
     };
     return {
       EndBehaviorType: voice.EndBehaviorType,
       opusDecoderStream: () =>
-        new prism.opus.Decoder({ rate: FORMAT.sampleRate, channels: FORMAT.channels, frameSize: 960 })
+        new prism.opus.Decoder({
+          rate: FORMAT.sampleRate,
+          channels: FORMAT.channels,
+          frameSize: 960,
+        }),
     };
   } catch (err) {
     throw new Error(
       "Live Discord capture needs the optional deps @discordjs/voice, prism-media and an Opus decoder " +
         "(@discordjs/opus or opusscript). Install them, or use `resound transcribe <file>` instead. " +
         "Note: Discord voice receive is currently blocked by DAVE/E2EE — see docs/providers.md. " +
-        `(${(err as Error).message})`
+        `(${(err as Error).message})`,
     );
   }
 }

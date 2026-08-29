@@ -6,7 +6,11 @@ import type { Transcriber, TranscriberName } from "./types.js";
 
 export * from "./types.js";
 export { MockTranscriber } from "./mock.js";
-export { LocalWhisperTranscriber, parseWhisperCppJson, parseOpenAiWhisperJson } from "./local-whisper.js";
+export {
+  LocalWhisperTranscriber,
+  parseWhisperCppJson,
+  parseOpenAiWhisperJson,
+} from "./local-whisper.js";
 export { OpenAICompatibleTranscriber, OpenAITranscriber } from "./openai.js";
 export { NotImplementedTranscriber } from "./placeholder.js";
 
@@ -28,7 +32,9 @@ function openAiKey(env: NodeJS.ProcessEnv): string | undefined {
  */
 export function getTranscriber(options: ResolveOptions = {}): Transcriber {
   const env = options.env ?? process.env;
-  const name = (options.name?.trim() || env.RESOUND_TRANSCRIBER?.trim() || "mock") as TranscriberName;
+  const name = (options.name?.trim() ||
+    env.RESOUND_TRANSCRIBER?.trim() ||
+    "mock") as TranscriberName;
   const model = env.RESOUND_TRANSCRIBER_MODEL?.trim() || undefined;
 
   switch (name) {
@@ -42,17 +48,21 @@ export function getTranscriber(options: ResolveOptions = {}): Transcriber {
       const apiKey = openAiKey(env);
       if (!apiKey) {
         throw new Error(
-          "RESOUND_TRANSCRIBER=openai but no OPENAI_API_KEY / RESOUND_OPENAI_API_KEY is set. Use RESOUND_TRANSCRIBER=local-whisper (local-first) or mock."
+          "RESOUND_TRANSCRIBER=openai but no OPENAI_API_KEY / RESOUND_OPENAI_API_KEY is set. Use RESOUND_TRANSCRIBER=local-whisper (local-first) or mock.",
         );
       }
-      return new OpenAITranscriber({ apiKey, model, baseUrl: env.RESOUND_OPENAI_BASE_URL });
+      return new OpenAITranscriber({
+        apiKey,
+        model,
+        baseUrl: env.RESOUND_OPENAI_BASE_URL,
+      });
     }
 
     case "openai-compatible": {
       const baseUrl = env.RESOUND_OPENAI_BASE_URL?.trim();
       if (!baseUrl) {
         throw new Error(
-          "RESOUND_TRANSCRIBER=openai-compatible requires RESOUND_OPENAI_BASE_URL (e.g. http://localhost:8080/v1)."
+          "RESOUND_TRANSCRIBER=openai-compatible requires RESOUND_OPENAI_BASE_URL (e.g. http://localhost:8080/v1).",
         );
       }
       // Many local compatible servers accept any/no token.

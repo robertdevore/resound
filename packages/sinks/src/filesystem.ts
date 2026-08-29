@@ -22,7 +22,7 @@ export class FilesystemSink implements Sink {
       paths.vtt,
       paths.srt,
       paths.summary,
-      paths.actionItems
+      paths.actionItems,
     ];
     let copied = 0;
     for (const f of files) {
@@ -31,6 +31,10 @@ export class FilesystemSink implements Sink {
         copied++;
       }
     }
-    return { sink: this.name, ok: true, detail: `Copied ${copied} file(s) to ${dest}` };
+    return {
+      sink: this.name,
+      ok: true,
+      detail: `Copied ${copied} file(s) to ${dest}`,
+    };
   }
 }

@@ -6,7 +6,7 @@ import type {
   Recorder,
   RecorderCapabilities,
   RecorderPreflightResult,
-  RecorderStartOptions
+  RecorderStartOptions,
 } from "./types.js";
 
 export interface MockRecorderOptions {
@@ -31,7 +31,7 @@ export class MockRecorder implements Recorder {
     reconnectSupport: true,
     healthMetrics: false,
     strictConsentCompatible: true,
-    supportedPlatforms: ["darwin", "linux", "win32"]
+    supportedPlatforms: ["darwin", "linux", "win32"],
   };
   private chunks: AudioChunk[] = [];
 
@@ -46,7 +46,7 @@ export class MockRecorder implements Recorder {
       dependencies: [],
       warnings: [],
       errors: [],
-      remediation: []
+      remediation: [],
     };
   }
 
@@ -60,7 +60,7 @@ export class MockRecorder implements Recorder {
         ? this.options.participants
         : [
             { id: "1", username: "Robert" },
-            { id: "2", username: "Ashley" }
+            { id: "2", username: "Ashley" },
           ];
 
     this.chunks = participants.map((p, i) => {
@@ -68,14 +68,14 @@ export class MockRecorder implements Recorder {
       fs.writeFileSync(
         file,
         `mock audio chunk for ${p.username} (${p.id})\n`,
-        "utf8"
+        "utf8",
       );
       return {
         userId: p.id,
         username: p.username,
         path: file,
         startSeconds: i * 5,
-        durationSeconds: 4
+        durationSeconds: 4,
       };
     });
   }

@@ -1,5 +1,10 @@
 import { formatTimestamp, type TranscriptSegment } from "@resound/core";
-import type { Transcriber, TranscriptionInput, TranscriberCapabilities, TranscriberPreflightResult } from "./types.js";
+import type {
+  Transcriber,
+  TranscriptionInput,
+  TranscriberCapabilities,
+  TranscriberPreflightResult,
+} from "./types.js";
 
 const SCRIPT = [
   "Let's review blockers first.",
@@ -8,7 +13,7 @@ const SCRIPT = [
   "Any concerns about the release window?",
   "We need to update the docs before we cut the tag.",
   "Action item: I'll draft the changelog this afternoon.",
-  "Sounds good, let's regroup on Friday."
+  "Sounds good, let's regroup on Friday.",
 ];
 
 /**
@@ -27,7 +32,7 @@ export class MockTranscriber implements Transcriber {
     contextualPrompting: false,
     confidence: true,
     retrySafe: true,
-    privacy: "local-only"
+    privacy: "local-only",
   };
 
   async preflight(): Promise<TranscriberPreflightResult> {
@@ -38,7 +43,7 @@ export class MockTranscriber implements Transcriber {
       summary: "Mock transcriber is ready.",
       warnings: [],
       errors: [],
-      remediation: []
+      remediation: [],
     };
   }
 
@@ -48,7 +53,7 @@ export class MockTranscriber implements Transcriber {
         ? input.participants.map((p) => ({ name: p.username, id: p.id }))
         : [
             { name: "Robert", id: "1" },
-            { name: "Ashley", id: "2" }
+            { name: "Ashley", id: "2" },
           ];
 
     const segments: TranscriptSegment[] = [];
@@ -63,7 +68,7 @@ export class MockTranscriber implements Transcriber {
         speaker: speaker.name,
         user_id: speaker.id,
         text,
-        confidence: 0.9
+        confidence: 0.9,
       });
       t = end + 1;
     });

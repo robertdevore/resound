@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildFfmpegArgs, isCleanFfmpegClose, isInteractiveStopInput } from "./record.js";
+import {
+  buildFfmpegArgs,
+  isCleanFfmpegClose,
+  isInteractiveStopInput,
+} from "./record.js";
 
 describe("buildFfmpegArgs", () => {
   it("builds a single-device capture", () => {
@@ -11,7 +15,11 @@ describe("buildFfmpegArgs", () => {
   });
 
   it("mixes system + mic with amix", () => {
-    const args = buildFfmpegArgs({ outFile: "/tmp/a.wav", systemDevice: "1", micDevice: "2" });
+    const args = buildFfmpegArgs({
+      outFile: "/tmp/a.wav",
+      systemDevice: "1",
+      micDevice: "2",
+    });
     const s = args.join(" ");
     expect(s).toContain("-f avfoundation -i :1");
     expect(s).toContain("-f avfoundation -i :2");
@@ -20,12 +28,18 @@ describe("buildFfmpegArgs", () => {
   });
 
   it("adds a duration limit when given", () => {
-    const args = buildFfmpegArgs({ outFile: "/tmp/a.wav", device: "1", durationSec: 30 });
+    const args = buildFfmpegArgs({
+      outFile: "/tmp/a.wav",
+      device: "1",
+      durationSec: 30,
+    });
     expect(args.join(" ")).toContain("-t 30");
   });
 
   it("throws when no device is provided", () => {
-    expect(() => buildFfmpegArgs({ outFile: "/tmp/a.wav" })).toThrow(/No capture device/);
+    expect(() => buildFfmpegArgs({ outFile: "/tmp/a.wav" })).toThrow(
+      /No capture device/,
+    );
   });
 });
 

@@ -3,7 +3,7 @@ import type {
   Transcriber,
   TranscriptionInput,
   TranscriberCapabilities,
-  TranscriberPreflightResult
+  TranscriberPreflightResult,
 } from "./types.js";
 
 /**
@@ -23,7 +23,7 @@ export class NotImplementedTranscriber implements Transcriber {
     contextualPrompting: false,
     confidence: false,
     retrySafe: false,
-    privacy: "remote-optional"
+    privacy: "remote-optional",
   };
   constructor(readonly provider: string) {}
 
@@ -34,17 +34,19 @@ export class NotImplementedTranscriber implements Transcriber {
       model: this.model,
       summary: `Transcriber "${this.provider}" is not implemented.`,
       warnings: [],
-      errors: [`Provider "${this.provider}" is scaffolded but not implemented.`],
+      errors: [
+        `Provider "${this.provider}" is scaffolded but not implemented.`,
+      ],
       remediation: [
-        "Use mock, local-whisper, openai, or openai-compatible until this adapter is completed."
-      ]
+        "Use mock, local-whisper, openai, or openai-compatible until this adapter is completed.",
+      ],
     };
   }
 
   async transcribe(_input: TranscriptionInput): Promise<TranscriptSegment[]> {
     throw new Error(
       `Transcriber "${this.provider}" is scaffolded but not implemented yet. ` +
-        `Set RESOUND_TRANSCRIBER=mock for local development, or RESOUND_TRANSCRIBER=openai with OPENAI_API_KEY.`
+        `Set RESOUND_TRANSCRIBER=mock for local development, or RESOUND_TRANSCRIBER=openai with OPENAI_API_KEY.`,
     );
   }
 }

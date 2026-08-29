@@ -8,14 +8,14 @@ import type {
   TranscriptionInput,
   TranscriberCapabilities,
   TranscriberPreflightResult,
-  TranscriptionProgress
+  TranscriptionProgress,
 } from "./types.js";
 import {
   defaultSpeaker,
   mapRawSegmentsToSpeakerSegments,
   mergeTranscriptSegments,
   selectEffectiveTracks,
-  type RawSegment
+  type RawSegment,
 } from "./tracks.js";
 
 /**
@@ -34,13 +34,16 @@ export type WhisperFormat = "whisper.cpp" | "openai-whisper";
 /** Parse whisper.cpp full JSON (offsets are milliseconds). */
 export function parseWhisperCppJson(json: string): RawSegment[] {
   const data = JSON.parse(json) as {
-    transcription?: { offsets?: { from?: number; to?: number }; text?: string }[];
+    transcription?: {
+      offsets?: { from?: number; to?: number };
+      text?: string;
+    }[];
   };
   const rows = data.transcription ?? [];
   return rows.map((r) => ({
     start: (r.offsets?.from ?? 0) / 1000,
     end: (r.offsets?.to ?? 0) / 1000,
-    text: (r.text ?? "").trim()
+    text: (r.text ?? "").trim(),
   }));
 }
 
@@ -57,7 +60,7 @@ export function parseOpenAiWhisperJson(json: string): RawSegment[] {
   return rows.map((r) => ({
     start: r.start ?? 0,
     end: r.end ?? 0,
-    text: (r.text ?? "").trim()
+    text: (r.text ?? "").trim(),
   }));
 }
 
@@ -72,7 +75,10 @@ export interface LocalWhisperOptions {
   extraArgs?: string[];
   env?: NodeJS.ProcessEnv;
   /** Injectable runner for testing. */
-  run?: (cmd: string, args: string[]) => Promise<{ code: number; stdout: string; stderr: string }>;
+  run?: (
+    cmd: string,
+    args: string[],
+  ) => Promise<{ code: number; stdout: string; stderr: string }>;
 }
 
 export class LocalWhisperTranscriber implements Transcriber {
@@ -87,7 +93,7 @@ export class LocalWhisperTranscriber implements Transcriber {
     contextualPrompting: false,
     confidence: false,
     retrySafe: true,
-    privacy: "local-only"
+    privacy: "local-only",
   };
   private readonly command: string;
   private readonly format: WhisperFormat;
@@ -98,10 +104,15 @@ export class LocalWhisperTranscriber implements Transcriber {
   constructor(opts: LocalWhisperOptions = {}) {
     const env = opts.env ?? process.env;
     this.command = opts.command ?? env.RESOUND_WHISPER_COMMAND ?? "whisper-cli";
-    this.format = opts.format ?? (env.RESOUND_WHISPER_FORMAT as WhisperFormat) ?? "whisper.cpp";
+    this.format =
+      opts.format ??
+      (env.RESOUND_WHISPER_FORMAT as WhisperFormat) ??
+      "whisper.cpp";
     this.model = opts.model ?? env.RESOUND_WHISPER_MODEL ?? "local";
     this.extraArgs = opts.extraArgs ?? splitArgs(env.RESOUND_WHISPER_ARGS);
-    this.defaultThreads = env.RESOUND_WHISPER_THREADS ?? String(Math.min(8, Math.max(2, os.cpus().length - 2)));
+    this.defaultThreads =
+      env.RESOUND_WHISPER_THREADS ??
+      String(Math.min(8, Math.max(2, os.cpus().length - 2)));
     this.run = opts.run ?? defaultRunner;
   }
 
@@ -110,7 +121,7 @@ export class LocalWhisperTranscriber implements Transcriber {
       const result = await this.invoke(["--help"]);
       if (result.code !== 0) {
         throw new Error(
-          `Local Whisper binary "${this.command}" exited ${result.code}: ${result.stderr.slice(0, 400)}`
+          `Local Whisper binary "${this.command}" exited ${result.code}: ${result.stderr.slice(0, 400)}`,
         );
       }
     } catch (err) {
@@ -122,21 +133,26 @@ export class LocalWhisperTranscriber implements Transcriber {
         warnings: [],
         errors: [(err as Error).message],
         remediation: [
-          "Install whisper.cpp or configure RESOUND_WHISPER_COMMAND to a working local transcription binary."
-        ]
+          "Install whisper.cpp or configure RESOUND_WHISPER_COMMAND to a working local transcription binary.",
+        ],
       };
     }
 
     const warnings: string[] = [];
     const errors: string[] = [];
     if (!this.model || this.model === "local") {
-      warnings.push("No explicit local Whisper model configured; runtime defaults will be used.");
+      warnings.push(
+        "No explicit local Whisper model configured; runtime defaults will be used.",
+      );
     } else if (!fs.existsSync(this.model)) {
-      warnings.push(`Configured model path does not exist on disk: ${this.model}`);
+      warnings.push(
+        `Configured model path does not exist on disk: ${this.model}`,
+      );
     }
 
     return {
-      status: errors.length > 0 ? "fail" : warnings.length > 0 ? "warning" : "pass",
+      status:
+        errors.length > 0 ? "fail" : warnings.length > 0 ? "warning" : "pass",
       provider: this.provider,
       model: this.model,
       summary:
@@ -145,24 +161,33 @@ export class LocalWhisperTranscriber implements Transcriber {
           : "Local Whisper preflight passed.",
       warnings,
       errors,
-      remediation: warnings.length > 0
-        ? ["Set RESOUND_WHISPER_MODEL to an explicit local model path before production recording."]
-        : []
+      remediation:
+        warnings.length > 0
+          ? [
+              "Set RESOUND_WHISPER_MODEL to an explicit local model path before production recording.",
+            ]
+          : [],
     };
   }
 
   async transcribe(input: TranscriptionInput): Promise<TranscriptSegment[]> {
     const tracks = selectEffectiveTracks(input);
-    const singlePath = input.audioPath && fs.existsSync(input.audioPath) ? input.audioPath : undefined;
+    const singlePath =
+      input.audioPath && fs.existsSync(input.audioPath)
+        ? input.audioPath
+        : undefined;
     if (!singlePath && tracks.length === 0) {
       throw new Error(
-        "LocalWhisperTranscriber requires an existing audioPath. Record the call to a file first, or use the mock provider."
+        "LocalWhisperTranscriber requires an existing audioPath. Record the call to a file first, or use the mock provider.",
       );
     }
 
     if (tracks.length > 0) {
       const startedAt = Date.now();
-      const totalDurationSeconds = tracks.reduce((sum, track) => sum + track.durationSeconds, 0);
+      const totalDurationSeconds = tracks.reduce(
+        (sum, track) => sum + track.durationSeconds,
+        0,
+      );
       let completedTracks = 0;
       let completedDurationSeconds = 0;
       const perTrack: ReturnType<typeof mapRawSegmentsToSpeakerSegments>[] = [];
@@ -175,15 +200,18 @@ export class LocalWhisperTranscriber implements Transcriber {
           completedTracks,
           completedDurationSeconds,
           totalDurationSeconds,
-          elapsedMs: Date.now() - startedAt
+          elapsedMs: Date.now() - startedAt,
         });
-        const raw = await this.transcribeRaw({ ...input, audioPath: track.path });
+        const raw = await this.transcribeRaw({
+          ...input,
+          audioPath: track.path,
+        });
         perTrack.push(
           mapRawSegmentsToSpeakerSegments(raw, {
             userId: track.userId,
             username: track.resolvedUsername,
-            startSeconds: track.startSeconds
-          })
+            startSeconds: track.startSeconds,
+          }),
         );
         completedTracks += 1;
         completedDurationSeconds += track.durationSeconds;
@@ -195,23 +223,30 @@ export class LocalWhisperTranscriber implements Transcriber {
           completedTracks,
           completedDurationSeconds,
           totalDurationSeconds,
-          elapsedMs: Date.now() - startedAt
+          elapsedMs: Date.now() - startedAt,
         });
       }
       return mergeTranscriptSegments(perTrack.flat());
     }
 
     const speaker = defaultSpeaker(input);
-    return mapRawSegmentsToSpeakerSegments(await this.transcribeRaw({ ...input, audioPath: singlePath }), speaker);
+    return mapRawSegmentsToSpeakerSegments(
+      await this.transcribeRaw({ ...input, audioPath: singlePath }),
+      speaker,
+    );
   }
 
-  private async transcribeRaw(input: TranscriptionInput): Promise<RawSegment[]> {
+  private async transcribeRaw(
+    input: TranscriptionInput,
+  ): Promise<RawSegment[]> {
     return this.format === "openai-whisper"
       ? this.runOpenAiWhisper(input)
       : this.runWhisperCpp(input);
   }
 
-  private async runWhisperCpp(input: TranscriptionInput): Promise<RawSegment[]> {
+  private async runWhisperCpp(
+    input: TranscriptionInput,
+  ): Promise<RawSegment[]> {
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-whisper-"));
     const outBase = path.join(outDir, "transcript");
     const args = [
@@ -223,16 +258,20 @@ export class LocalWhisperTranscriber implements Transcriber {
       input.audioPath!,
       "-oj",
       "-of",
-      outBase
+      outBase,
     ];
     try {
       const { code, stderr } = await this.invoke(args);
       if (code !== 0) {
-        throw new Error(`whisper.cpp exited ${code}. stderr: ${stderr.slice(0, 400)}`);
+        throw new Error(
+          `whisper.cpp exited ${code}. stderr: ${stderr.slice(0, 400)}`,
+        );
       }
       const jsonPath = `${outBase}.json`;
       if (!fs.existsSync(jsonPath)) {
-        throw new Error(`whisper.cpp produced no JSON. stderr: ${stderr.slice(0, 400)}`);
+        throw new Error(
+          `whisper.cpp produced no JSON. stderr: ${stderr.slice(0, 400)}`,
+        );
       }
       return parseWhisperCppJson(fs.readFileSync(jsonPath, "utf8"));
     } finally {
@@ -240,7 +279,9 @@ export class LocalWhisperTranscriber implements Transcriber {
     }
   }
 
-  private async runOpenAiWhisper(input: TranscriptionInput): Promise<RawSegment[]> {
+  private async runOpenAiWhisper(
+    input: TranscriptionInput,
+  ): Promise<RawSegment[]> {
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-whisper-"));
     const args = [
       input.audioPath!,
@@ -251,17 +292,21 @@ export class LocalWhisperTranscriber implements Transcriber {
       "--output_dir",
       outDir,
       ...(input.language ? ["--language", input.language] : []),
-      ...this.extraArgs
+      ...this.extraArgs,
     ];
     try {
       const { code, stderr } = await this.invoke(args);
       if (code !== 0) {
-        throw new Error(`openai-whisper exited ${code}. stderr: ${stderr.slice(0, 400)}`);
+        throw new Error(
+          `openai-whisper exited ${code}. stderr: ${stderr.slice(0, 400)}`,
+        );
       }
       const base = path.basename(input.audioPath!).replace(/\.[^.]+$/, "");
       const jsonPath = path.join(outDir, `${base}.json`);
       if (!fs.existsSync(jsonPath)) {
-        throw new Error(`openai-whisper produced no JSON. stderr: ${stderr.slice(0, 400)}`);
+        throw new Error(
+          `openai-whisper produced no JSON. stderr: ${stderr.slice(0, 400)}`,
+        );
       }
       return parseOpenAiWhisperJson(fs.readFileSync(jsonPath, "utf8"));
     } finally {
@@ -269,7 +314,9 @@ export class LocalWhisperTranscriber implements Transcriber {
     }
   }
 
-  private async invoke(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
+  private async invoke(
+    args: string[],
+  ): Promise<{ code: number; stdout: string; stderr: string }> {
     try {
       return await this.run(this.command, args);
     } catch (err) {
@@ -278,7 +325,7 @@ export class LocalWhisperTranscriber implements Transcriber {
         throw new Error(
           `Local Whisper binary "${this.command}" not found. Install whisper.cpp (provides ` +
             `whisper-cli) or set RESOUND_WHISPER_COMMAND to your transcription binary. ` +
-            `See docs/providers.md.`
+            `See docs/providers.md.`,
         );
       }
       throw err;
@@ -296,14 +343,14 @@ function hasThreadArg(args: string[]): boolean {
 
 function emitProgress(
   callback: TranscriptionInput["onProgress"],
-  progress: TranscriptionProgress
+  progress: TranscriptionProgress,
 ): void {
   callback?.(progress);
 }
 
 function defaultRunner(
   cmd: string,
-  args: string[]
+  args: string[],
 ): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });

@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 try {
-  (process as NodeJS.Process & { loadEnvFile?: (p?: string) => void }).loadEnvFile?.();
+  (
+    process as NodeJS.Process & { loadEnvFile?: (p?: string) => void }
+  ).loadEnvFile?.();
 } catch {
   /* no .env file — rely on the ambient environment */
 }
@@ -18,7 +20,9 @@ async function main(): Promise<void> {
   const guildId = process.env.DISCORD_GUILD_ID;
 
   if (!token || !clientId) {
-    console.error("DISCORD_TOKEN and DISCORD_CLIENT_ID are required to register commands.");
+    console.error(
+      "DISCORD_TOKEN and DISCORD_CLIENT_ID are required to register commands.",
+    );
     process.exit(1);
   }
 
@@ -29,7 +33,7 @@ async function main(): Promise<void> {
 
   await rest.put(route, { body: commandsJson });
   console.log(
-    `Registered ${commandsJson.length} command(s) ${guildId ? `to guild ${guildId}` : "globally"}.`
+    `Registered ${commandsJson.length} command(s) ${guildId ? `to guild ${guildId}` : "globally"}.`,
   );
 }
 

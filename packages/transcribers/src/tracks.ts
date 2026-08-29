@@ -1,5 +1,9 @@
 import fs from "node:fs";
-import { formatTimestamp, type Participant, type TranscriptSegment } from "@resound/core";
+import {
+  formatTimestamp,
+  type Participant,
+  type TranscriptSegment,
+} from "@resound/core";
 import type { TranscriptionInput, TranscriptionTrack } from "./types.js";
 
 export interface RawSegment {
@@ -13,21 +17,29 @@ interface EffectiveTrack extends TranscriptionTrack {
   resolvedUsername: string;
 }
 
-export function selectEffectiveTracks(input: TranscriptionInput): EffectiveTrack[] {
+export function selectEffectiveTracks(
+  input: TranscriptionInput,
+): EffectiveTrack[] {
   const tracks = (input.audioTracks ?? [])
     .filter((track) => track.userId !== "mixed")
     .filter((track) => fs.existsSync(track.path));
   if (tracks.length === 0) return [];
-  const participants = new Map((input.participants ?? []).map((participant) => [participant.id, participant]));
+  const participants = new Map(
+    (input.participants ?? []).map((participant) => [
+      participant.id,
+      participant,
+    ]),
+  );
   return tracks.map((track) => ({
     ...track,
-    resolvedUsername: participants.get(track.userId)?.username ?? track.username
+    resolvedUsername:
+      participants.get(track.userId)?.username ?? track.username,
   }));
 }
 
 export function mapRawSegmentsToSpeakerSegments(
   raw: RawSegment[],
-  speaker: { userId: string; username: string; startSeconds?: number }
+  speaker: { userId: string; username: string; startSeconds?: number },
 ): TranscriptSegment[] {
   const offset = speaker.startSeconds ?? 0;
   return raw
@@ -38,20 +50,26 @@ export function mapRawSegmentsToSpeakerSegments(
       speaker: speaker.username,
       user_id: speaker.userId,
       text: segment.text.trim(),
-      confidence: segment.confidence ?? 0
+      confidence: segment.confidence ?? 0,
     }));
 }
 
-export function defaultSpeaker(input: TranscriptionInput): { userId: string; username: string; startSeconds: number } {
+export function defaultSpeaker(input: TranscriptionInput): {
+  userId: string;
+  username: string;
+  startSeconds: number;
+} {
   const participant = input.participants?.[0];
   return {
     userId: participant?.id ?? "",
     username: participant?.username ?? "Speaker",
-    startSeconds: 0
+    startSeconds: 0,
   };
 }
 
-export function mergeTranscriptSegments(segments: TranscriptSegment[]): TranscriptSegment[] {
+export function mergeTranscriptSegments(
+  segments: TranscriptSegment[],
+): TranscriptSegment[] {
   return [...segments].sort((left, right) => {
     const startDiff = parseTimestamp(left.ts) - parseTimestamp(right.ts);
     if (startDiff !== 0) return startDiff;

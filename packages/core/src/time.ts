@@ -35,14 +35,20 @@ export function parseTimestamp(ts: string): number {
 
 /** Seconds -> WebVTT timestamp `hh:mm:ss.mmm`. */
 export function toVttTimestamp(totalSeconds: number): string {
-	const totalMs = Math.max(0, Math.round(Number.isFinite(totalSeconds) ? totalSeconds * 1000 : 0));
-	const wholeSeconds = Math.floor(totalMs / 1000);
-	return `${formatTimestamp(wholeSeconds)}.${pad(totalMs % 1000, 3)}`;
+  const totalMs = Math.max(
+    0,
+    Math.round(Number.isFinite(totalSeconds) ? totalSeconds * 1000 : 0),
+  );
+  const wholeSeconds = Math.floor(totalMs / 1000);
+  return `${formatTimestamp(wholeSeconds)}.${pad(totalMs % 1000, 3)}`;
 }
 
 /** Seconds -> SubRip (SRT) timestamp `hh:mm:ss,mmm`. */
 export function toSrtTimestamp(totalSeconds: number): string {
-	const totalMs = Math.max(0, Math.round(Number.isFinite(totalSeconds) ? totalSeconds * 1000 : 0));
-	const wholeSeconds = Math.floor(totalMs / 1000);
-	return `${formatTimestamp(wholeSeconds)},${pad(totalMs % 1000, 3)}`;
+  const totalMs = Math.max(
+    0,
+    Math.round(Number.isFinite(totalSeconds) ? totalSeconds * 1000 : 0),
+  );
+  const wholeSeconds = Math.floor(totalMs / 1000);
+  return `${formatTimestamp(wholeSeconds)},${pad(totalMs % 1000, 3)}`;
 }

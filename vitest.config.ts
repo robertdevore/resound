@@ -12,12 +12,16 @@ export default defineConfig({
       "@resound/transcribers": pkg("transcribers"),
       "@resound/exporters": pkg("exporters"),
       "@resound/sinks": pkg("sinks"),
-      "@resound/kujo": pkg("kujo")
-    }
+      "@resound/kujo": pkg("kujo"),
+    },
   },
   test: {
     globals: true,
-    include: ["packages/**/*.test.ts", "apps/**/*.test.ts", "tests/**/*.test.ts"],
-    environment: "node"
-  }
+    include: [
+      "packages/**/*.test.ts",
+      "apps/**/*.test.ts",
+      "tests/**/*.test.ts",
+    ],
+    environment: "node",
+  },
 });

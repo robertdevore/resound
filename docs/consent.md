@@ -7,14 +7,14 @@ session, and the `consent-required` check fails any session without it.
 
 Every session manifest carries a `consent_events` array. Event types:
 
-| Type | When |
-| --- | --- |
-| `recording-announced` | At `/resound start` — the bot announces recording + transcription in the channel. |
-| `session-consent` | Optional explicit "yes, record this session" acknowledgement. |
-| `participant-joined` | Auto-logged when someone joins **while recording is active**, with a visible announcement. |
-| `participant-consent` | `/resound consent` — a participant explicitly consents. |
-| `participant-left` | When a participant leaves. |
-| `recording-stopped` | At `/resound stop`. |
+| Type                  | When                                                                                       |
+| --------------------- | ------------------------------------------------------------------------------------------ |
+| `recording-announced` | At `/resound start` — the bot announces recording + transcription in the channel.          |
+| `session-consent`     | Optional explicit "yes, record this session" acknowledgement.                              |
+| `participant-joined`  | Auto-logged when someone joins **while recording is active**, with a visible announcement. |
+| `participant-consent` | `/resound consent` — a participant explicitly consents.                                    |
+| `participant-left`    | When a participant leaves.                                                                 |
+| `recording-stopped`   | At `/resound stop`.                                                                        |
 
 A session is considered valid only if it has at least one consent event **and** a
 `recording-announced` event (enforced by `.kujo/checks/consent-required.kujo`

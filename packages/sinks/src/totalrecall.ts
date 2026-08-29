@@ -10,7 +10,10 @@ export interface TotalRecallOptions {
    */
   command?: string;
   env?: NodeJS.ProcessEnv;
-  run?: (cmd: string, args: string[]) => Promise<{ code: number; stderr: string }>;
+  run?: (
+    cmd: string,
+    args: string[],
+  ) => Promise<{ code: number; stderr: string }>;
 }
 
 /**
@@ -24,7 +27,9 @@ export class TotalRecallSink implements Sink {
   async send(session: TranscriptSession): Promise<SinkResult> {
     const env = this.options.env ?? process.env;
     const template =
-      this.options.command ?? env.TOTALRECALL_INGEST_COMMAND ?? "totalrecall ingest";
+      this.options.command ??
+      env.TOTALRECALL_INGEST_COMMAND ??
+      "totalrecall ingest";
     const dir = path.resolve(session.dir);
     const parts = template.split(/\s+/).filter(Boolean);
     const cmd = parts[0]!;
@@ -34,12 +39,16 @@ export class TotalRecallSink implements Sink {
     try {
       const { code, stderr } = await runner(cmd, args);
       if (code === 0) {
-        return { sink: this.name, ok: true, detail: `Ran: ${cmd} ${args.join(" ")}` };
+        return {
+          sink: this.name,
+          ok: true,
+          detail: `Ran: ${cmd} ${args.join(" ")}`,
+        };
       }
       return {
         sink: this.name,
         ok: false,
-        detail: `TotalRecall command exited ${code}: ${stderr.trim()}`
+        detail: `TotalRecall command exited ${code}: ${stderr.trim()}`,
       };
     } catch (err) {
       return {
@@ -48,13 +57,16 @@ export class TotalRecallSink implements Sink {
         skipped: true,
         detail:
           `TotalRecall is optional and not configured. To ingest manually:\n  totalrecall ingest ${dir}\n` +
-          `(${(err as Error).message})`
+          `(${(err as Error).message})`,
       };
     }
   }
 }
 
-function defaultRunner(cmd: string, args: string[]): Promise<{ code: number; stderr: string }> {
+function defaultRunner(
+  cmd: string,
+  args: string[],
+): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";

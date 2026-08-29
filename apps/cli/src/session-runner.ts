@@ -7,7 +7,7 @@ import {
   outputRoot,
   recordConsentEvent,
   sessionPaths,
-  type TranscriptSession
+  type TranscriptSession,
 } from "@resound/core";
 import { MockRecorder } from "@resound/audio";
 import { getTranscriber } from "@resound/transcribers";
@@ -26,7 +26,7 @@ export interface MockSessionOptions {
  * write all portable outputs. Returns the in-memory session and its directory.
  */
 export async function createMockSession(
-  options: MockSessionOptions
+  options: MockSessionOptions,
 ): Promise<TranscriptSession> {
   const env = options.env ?? process.env;
   const at = options.at ?? new Date();
@@ -35,7 +35,7 @@ export async function createMockSession(
       ? options.participants
       : [
           { id: "1", username: "Robert" },
-          { id: "2", username: "Ashley" }
+          { id: "2", username: "Ashley" },
         ];
 
   const transcriber = getTranscriber({ env });
@@ -45,7 +45,7 @@ export async function createMockSession(
     startedAt: at,
     startedBy: { id: participants[0]!.id, username: participants[0]!.username },
     transcriberProvider: transcriber.provider,
-    transcriberModel: transcriber.model
+    transcriberModel: transcriber.model,
   });
 
   recordConsentEvent(manifest, {
@@ -53,13 +53,20 @@ export async function createMockSession(
     user_id: "bot",
     username: "resound",
     ts: at.toISOString(),
-    note: "Recording and transcription announced at session start."
+    note: "Recording and transcription announced at session start.",
   });
   for (const p of participants) {
-    addParticipant(manifest, { id: p.id, username: p.username, joinedAt: at.toISOString() });
+    addParticipant(manifest, {
+      id: p.id,
+      username: p.username,
+      joinedAt: at.toISOString(),
+    });
   }
 
-  const dir = path.join(outputRoot(env), buildSessionFolder({ title: options.title, source: "mock", at }));
+  const dir = path.join(
+    outputRoot(env),
+    buildSessionFolder({ title: options.title, source: "mock", at }),
+  );
 
   const recorder = new MockRecorder({ participants });
   await recorder.start({ sessionDir: dir });
@@ -70,7 +77,7 @@ export async function createMockSession(
     participants: manifest.participants,
     audioTracks: chunks,
     audioPath: chunks[0]?.path,
-    mock: true
+    mock: true,
   });
 
   manifest.ended_at = new Date(at.getTime() + 60_000).toISOString();
@@ -78,7 +85,7 @@ export async function createMockSession(
     type: "recording-stopped",
     user_id: "bot",
     username: "resound",
-    note: "Recording stopped."
+    note: "Recording stopped.",
   });
 
   const session: TranscriptSession = { manifest, segments, dir };
@@ -105,7 +112,7 @@ export interface FileSessionOptions {
  * portable Resound session with the configured provider (e.g. OpenAI).
  */
 export async function createFileSession(
-  options: FileSessionOptions
+  options: FileSessionOptions,
 ): Promise<TranscriptSession> {
   const env = options.env ?? process.env;
   const at = options.at ?? new Date();
@@ -123,22 +130,26 @@ export async function createFileSession(
     startedAt: at,
     startedBy: participants[0] ?? { id: "", username: "" },
     transcriberProvider: transcriber.provider,
-    transcriberModel: transcriber.model
+    transcriberModel: transcriber.model,
   });
   recordConsentEvent(manifest, {
     type: "recording-announced",
     user_id: "operator",
     username: "operator",
     ts: at.toISOString(),
-    note: `Transcribing pre-recorded audio: ${path.basename(options.audioFile)}. Operator attests recording consent was obtained.`
+    note: `Transcribing pre-recorded audio: ${path.basename(options.audioFile)}. Operator attests recording consent was obtained.`,
   });
   for (const p of participants) {
-    addParticipant(manifest, { id: p.id, username: p.username, joinedAt: at.toISOString() });
+    addParticipant(manifest, {
+      id: p.id,
+      username: p.username,
+      joinedAt: at.toISOString(),
+    });
   }
 
   const dir = path.join(
     outputRoot(env),
-    buildSessionFolder({ title: options.title, source: "file", at })
+    buildSessionFolder({ title: options.title, source: "file", at }),
   );
   // Reference the source audio inside the session for provenance.
   const paths = sessionPaths(dir);
@@ -154,7 +165,7 @@ export async function createFileSession(
     sessionDir: dir,
     audioPath: fs.existsSync(audioCopy) ? audioCopy : options.audioFile,
     participants: manifest.participants,
-    language: options.language
+    language: options.language,
   });
 
   manifest.ended_at = new Date().toISOString();
@@ -162,7 +173,7 @@ export async function createFileSession(
     type: "recording-stopped",
     user_id: "operator",
     username: "operator",
-    note: "Transcription complete."
+    note: "Transcription complete.",
   });
 
   const session: TranscriptSession = { manifest, segments, dir };
@@ -171,7 +182,9 @@ export async function createFileSession(
 }
 
 /** Parse a comma-separated name list into synthetic participants. */
-export function parseParticipants(csv?: string): { id: string; username: string }[] {
+export function parseParticipants(
+  csv?: string,
+): { id: string; username: string }[] {
   if (!csv) return [];
   return csv
     .split(",")

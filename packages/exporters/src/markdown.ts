@@ -19,7 +19,7 @@ export interface MarkdownOptions {
 export function toMarkdown(
   manifest: SessionManifest,
   segments: TranscriptSegment[],
-  options: MarkdownOptions = {}
+  options: MarkdownOptions = {},
 ): string {
   const lines: string[] = [];
   lines.push(`# Resound Transcript: ${manifest.title}`);

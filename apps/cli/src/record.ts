@@ -37,21 +37,31 @@ export function buildFfmpegArgs(opts: RecordOptions): string[] {
   } else if (opts.device) {
     inputs.push(["-f", "avfoundation", "-i", `:${opts.device}`]);
   } else {
-    if (opts.systemDevice) inputs.push(["-f", "avfoundation", "-i", `:${opts.systemDevice}`]);
-    if (opts.micDevice) inputs.push(["-f", "avfoundation", "-i", `:${opts.micDevice}`]);
+    if (opts.systemDevice)
+      inputs.push(["-f", "avfoundation", "-i", `:${opts.systemDevice}`]);
+    if (opts.micDevice)
+      inputs.push(["-f", "avfoundation", "-i", `:${opts.micDevice}`]);
   }
   if (inputs.length === 0) {
-    throw new Error("No capture device specified. Use --device, or --system and/or --mic.");
+    throw new Error(
+      "No capture device specified. Use --device, or --system and/or --mic.",
+    );
   }
   for (const inp of inputs) args.push(...inp);
 
   if (inputs.length > 1) {
     const labels = inputs.map((_, i) => `[${i}:a]`).join("");
-    args.push("-filter_complex", `${labels}amix=inputs=${inputs.length}:duration=longest[a]`, "-map", "[a]");
+    args.push(
+      "-filter_complex",
+      `${labels}amix=inputs=${inputs.length}:duration=longest[a]`,
+      "-map",
+      "[a]",
+    );
   }
 
   args.push("-ac", "1", "-ar", String(rate));
-  if (opts.durationSec && opts.durationSec > 0) args.push("-t", String(opts.durationSec));
+  if (opts.durationSec && opts.durationSec > 0)
+    args.push("-t", String(opts.durationSec));
   args.push("-y", opts.outFile);
   return args;
 }
@@ -63,12 +73,22 @@ export interface Recording {
   stop(): void;
 }
 
-export function isCleanFfmpegClose(code: number | null, signal: NodeJS.Signals | null): boolean {
-  return code === 0 || code === 255 || signal === "SIGINT" || signal === "SIGTERM";
+export function isCleanFfmpegClose(
+  code: number | null,
+  signal: NodeJS.Signals | null,
+): boolean {
+  return (
+    code === 0 || code === 255 || signal === "SIGINT" || signal === "SIGTERM"
+  );
 }
 
 export function isInteractiveStopInput(input: string): boolean {
-  return input.includes("\u0003") || input.includes("\n") || input.includes("\r") || input.toLowerCase().includes("q");
+  return (
+    input.includes("\u0003") ||
+    input.includes("\n") ||
+    input.includes("\r") ||
+    input.toLowerCase().includes("q")
+  );
 }
 
 /** Start an ffmpeg capture. Call stop() (or rely on durationSec) to finish. */
@@ -93,7 +113,10 @@ export function recordAudio(opts: RecordOptions): Recording {
       // ffmpeg returns 255 for a clean stdin 'q' stop. In a terminal, Ctrl+C can
       // also reach the ffmpeg process directly as SIGINT before stdin 'q' lands.
       if (isCleanFfmpegClose(code, signal)) resolve(opts.outFile);
-      else reject(new Error(`ffmpeg exited ${code ?? signal}: ${stderr.slice(0, 500)}`));
+      else
+        reject(
+          new Error(`ffmpeg exited ${code ?? signal}: ${stderr.slice(0, 500)}`),
+        );
     });
   });
 
@@ -119,7 +142,7 @@ export function listAudioDevices(ffmpegPath = "ffmpeg"): AudioDevice[] {
   const res = spawnSync(
     ffmpegPath,
     ["-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
-    { encoding: "utf8" }
+    { encoding: "utf8" },
   );
   const text = `${res.stdout ?? ""}${res.stderr ?? ""}`;
   const devices: AudioDevice[] = [];

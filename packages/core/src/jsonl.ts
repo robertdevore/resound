@@ -6,7 +6,7 @@ const REQUIRED_FIELDS: (keyof TranscriptSegment)[] = [
   "speaker",
   "user_id",
   "text",
-  "confidence"
+  "confidence",
 ];
 
 export interface ParseResult {
@@ -40,14 +40,24 @@ export function parseJsonl(content: string): ParseResult {
       errors.push(`Line ${index + 1}: missing field(s): ${missing.join(", ")}`);
       return;
     }
-    const stringFields = ["ts", "end_ts", "speaker", "user_id", "text"] as const;
-    const wrongTypes: string[] = stringFields.filter((field) => typeof record[field] !== "string");
+    const stringFields = [
+      "ts",
+      "end_ts",
+      "speaker",
+      "user_id",
+      "text",
+    ] as const;
+    const wrongTypes: string[] = stringFields.filter(
+      (field) => typeof record[field] !== "string",
+    );
     const confidence = record.confidence;
     if (typeof confidence !== "number" || !Number.isFinite(confidence)) {
       wrongTypes.push("confidence");
     }
     if (wrongTypes.length > 0) {
-      errors.push(`Line ${index + 1}: invalid type for field(s): ${wrongTypes.join(", ")}`);
+      errors.push(
+        `Line ${index + 1}: invalid type for field(s): ${wrongTypes.join(", ")}`,
+      );
       return;
     }
     if (typeof confidence === "number" && (confidence < 0 || confidence > 1)) {
@@ -60,7 +70,7 @@ export function parseJsonl(content: string): ParseResult {
       speaker: record.speaker as string,
       user_id: record.user_id as string,
       text: record.text as string,
-      confidence: confidence as number
+      confidence: confidence as number,
     });
   });
 
@@ -69,5 +79,8 @@ export function parseJsonl(content: string): ParseResult {
 
 /** Serialize segments to JSONL (one compact JSON object per line). */
 export function toJsonl(segments: TranscriptSegment[]): string {
-  return segments.map((s) => JSON.stringify(s)).join("\n") + (segments.length ? "\n" : "");
+  return (
+    segments.map((s) => JSON.stringify(s)).join("\n") +
+    (segments.length ? "\n" : "")
+  );
 }

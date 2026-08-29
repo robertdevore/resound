@@ -1,4 +1,9 @@
-import { parseTimestamp, toSrtTimestamp, toVttTimestamp, type TranscriptSegment } from "@resound/core";
+import {
+  parseTimestamp,
+  toSrtTimestamp,
+  toVttTimestamp,
+  type TranscriptSegment,
+} from "@resound/core";
 
 /** Render a WebVTT subtitle file from transcript segments. */
 export function toVtt(segments: TranscriptSegment[]): string {

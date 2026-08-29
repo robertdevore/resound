@@ -5,7 +5,7 @@ import path from "node:path";
 import {
   createManifest,
   recordConsentEvent,
-  type TranscriptSession
+  type TranscriptSession,
 } from "@resound/core";
 import { StdoutSink } from "./stdout.js";
 import { StrataSink } from "./strata.js";
@@ -13,9 +13,20 @@ import { WebhookSink } from "./webhook.js";
 
 function tempSession(): TranscriptSession {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-sink-"));
-  const manifest = createManifest({ title: "Test", startedAt: new Date("2026-06-22T00:00:00Z") });
-  recordConsentEvent(manifest, { type: "recording-announced", user_id: "1", username: "bot" });
-  fs.writeFileSync(path.join(dir, "transcript.md"), "# Resound Transcript: Test\n", "utf8");
+  const manifest = createManifest({
+    title: "Test",
+    startedAt: new Date("2026-06-22T00:00:00Z"),
+  });
+  recordConsentEvent(manifest, {
+    type: "recording-announced",
+    user_id: "1",
+    username: "bot",
+  });
+  fs.writeFileSync(
+    path.join(dir, "transcript.md"),
+    "# Resound Transcript: Test\n",
+    "utf8",
+  );
   return { manifest, segments: [], dir };
 }
 
@@ -41,7 +52,7 @@ describe("strata sink", () => {
       "notes",
       "add",
       "--file",
-      path.join(session.dir, "transcript.md")
+      path.join(session.dir, "transcript.md"),
     ]);
   });
 
@@ -59,8 +70,13 @@ describe("strata sink", () => {
 describe("webhook sink", () => {
   it("posts a json payload", async () => {
     const session = tempSession();
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
-    const sink = new WebhookSink({ url: "https://example.test/hook", fetchImpl });
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200 }) as unknown as typeof fetch;
+    const sink = new WebhookSink({
+      url: "https://example.test/hook",
+      fetchImpl,
+    });
     const result = await sink.send(session);
     expect(result.ok).toBe(true);
     expect(fetchImpl).toHaveBeenCalledOnce();

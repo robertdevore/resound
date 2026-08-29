@@ -4,7 +4,7 @@ import {
   readManifest,
   sessionPaths,
   validateSession,
-  type SessionManifest
+  type SessionManifest,
 } from "@resound/core";
 
 /**
@@ -26,11 +26,17 @@ export interface CheckResult {
 export function checkConsentRequired(manifest: SessionManifest): CheckResult {
   const messages: string[] = [];
   if (!hasConsent(manifest)) {
-    messages.push("No consent_events recorded. Resound forbids hidden recording.");
+    messages.push(
+      "No consent_events recorded. Resound forbids hidden recording.",
+    );
   }
-  const announced = manifest.consent_events.some((e) => e.type === "recording-announced");
+  const announced = manifest.consent_events.some(
+    (e) => e.type === "recording-announced",
+  );
   if (!announced) {
-    messages.push("No 'recording-announced' event — recording was never announced.");
+    messages.push(
+      "No 'recording-announced' event — recording was never announced.",
+    );
   }
   return { check: "consent-required", pass: messages.length === 0, messages };
 }
@@ -45,7 +51,7 @@ export function checkExportCompleteness(dir: string): CheckResult {
     return {
       check: "export-completeness",
       pass: false,
-      messages: ["manifest.json missing or unreadable"]
+      messages: ["manifest.json missing or unreadable"],
     };
   }
   const paths = sessionPaths(dir, manifest);
@@ -55,12 +61,16 @@ export function checkExportCompleteness(dir: string): CheckResult {
     ["transcript.vtt", paths.vtt],
     ["transcript.srt", paths.srt],
     ["summary.md", paths.summary],
-    ["action-items.md", paths.actionItems]
+    ["action-items.md", paths.actionItems],
   ];
   for (const [label, p] of required) {
     if (!fs.existsSync(p)) messages.push(`missing required export: ${label}`);
   }
-  return { check: "export-completeness", pass: messages.length === 0, messages };
+  return {
+    check: "export-completeness",
+    pass: messages.length === 0,
+    messages,
+  };
 }
 
 /** transcript-validity.kujo — manifest + canonical JSONL must validate. */
@@ -69,7 +79,7 @@ export function checkTranscriptValidity(dir: string): CheckResult {
   return {
     check: "transcript-validity",
     pass: result.valid,
-    messages: result.errors
+    messages: result.errors,
   };
 }
 
@@ -83,7 +93,7 @@ export function runChecks(dir: string): CheckResult[] {
     results.push({
       check: "consent-required",
       pass: false,
-      messages: ["manifest.json missing or unreadable"]
+      messages: ["manifest.json missing or unreadable"],
     });
   }
   results.push(checkExportCompleteness(dir));
