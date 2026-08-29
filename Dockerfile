@@ -1,4 +1,4 @@
-FROM node:20.19.5-bookworm
+FROM node:26.8.1-bookworm
 
 ENV NODE_ENV=production \
     PYTHONDONTWRITEBYTECODE=1 \
