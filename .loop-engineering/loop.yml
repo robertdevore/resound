@@ -1,0 +1,71 @@
+objective: "Resolve every validated ReSound release blocker and prove the self-hosted Discord bot is production-ready."
+checklist_file: ".loop-engineering/release-checklist.md"
+max_iterations: 8
+max_no_progress: 2
+max_consecutive_failures: 3
+
+allowed_actions:
+  - read_files
+  - edit_files
+  - run_tests
+  - commit_local_changes
+  - push_commits
+
+blocked_actions:
+  - deploy
+  - destructive_cleanup
+  - production_config_change
+
+eval_gates:
+  - id: node_install
+    command: "corepack pnpm install --frozen-lockfile"
+    required: true
+    when_files_match:
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "apps/**"
+      - "packages/**"
+
+  - id: node_tests
+    command: "corepack pnpm test"
+    required: true
+    when_files_match:
+      - "apps/**"
+      - "packages/**"
+
+  - id: typecheck
+    command: "corepack pnpm typecheck"
+    required: true
+    when_files_match:
+      - "apps/**"
+      - "packages/**"
+
+  - id: build
+    command: "corepack pnpm build"
+    required: true
+    when_files_match:
+      - "apps/**"
+      - "packages/**"
+
+  - id: python_syntax
+    command: "python3 -c 'from pathlib import Path; compile(Path(\"packages/audio/python/discord_native_sidecar.py\").read_text(), \"discord_native_sidecar.py\", \"exec\")'"
+    required: true
+    when_files_match:
+      - "packages/audio/python/**"
+
+  - id: diff_check
+    command: "git diff --check"
+    required: true
+
+commit:
+  enabled: true
+  strategy: small_meaningful
+  push: true
+
+memory:
+  enabled: true
+  provider: strata
+  project: "Agent Notes"
+  mode: consolidate
+  retrieval_tests: true
