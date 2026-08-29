@@ -10,17 +10,21 @@ permissions:
 
 jobs:
   verify:
+    name: verify (${{ matrix.label }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
+            label: node20-pnpm9-linux
             node: 20
             install: pnpm install --frozen-lockfile
           - os: ubuntu-latest
+            label: node22-pnpm11-linux
             node: 22
             install: npx -y pnpm@11.0.0 install --frozen-lockfile
           - os: macos-latest
+            label: node22-pnpm9-macos
             node: 22
             install: pnpm install --frozen-lockfile
     runs-on: ${{ matrix.os }}
