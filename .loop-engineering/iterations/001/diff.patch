@@ -1,0 +1,75 @@
+diff --git a/.loop-engineering/checklist.tsv b/.loop-engineering/checklist.tsv
+index 4e11f16..16d6d68 100644
+--- a/.loop-engineering/checklist.tsv
++++ b/.loop-engineering/checklist.tsv
+@@ -1,13 +1,13 @@
+ line	status	text	evidence
+-3	local-fixable	Wire Discord voice-state joins/leaves into persisted participant and consent events with visible late-join announcements.	.loop-engineering/release-checklist.md:3
+-4	local-fixable	Enforce safe slash-command authorization and session-owner control without breaking legitimate operators.	.loop-engineering/release-checklist.md:4
+-5	local-fixable	Make transcript delivery private/configurable and remove host filesystem paths from Discord responses.	.loop-engineering/release-checklist.md:5
+-6	local-fixable	Add graceful shutdown, interrupted-session recovery, and durable last-session export behavior.	.loop-engineering/release-checklist.md:6
+-7	local-fixable	Provide a supported, reproducible source installation and self-hosted service lifecycle.	.loop-engineering/release-checklist.md:7
+-8	local-fixable	Make the documented package-manager contract reliable across supported installs.	.loop-engineering/release-checklist.md:8
+-9	local-fixable	Change defaults so experimental Discord-native capture is opt-in and production-safe paths are explicit.	.loop-engineering/release-checklist.md:9
+-10	local-fixable	Add Python-sidecar, clean-install, platform, lifecycle, and Discord interaction verification proportional to runtime risk.	.loop-engineering/release-checklist.md:10
+-11	needs-release-pipeline	Add production repository governance, security guidance, contribution guidance, and release criteria.	.loop-engineering/release-checklist.md:11
+-12	needs-release-pipeline	Cut a current release-ready version from all fixes with accurate changelog and release notes.	.loop-engineering/release-checklist.md:12
+-13	needs-release-pipeline	Pass install, lint/format, typecheck, tests, build, audit, smoke, packaging, and release gates.	.loop-engineering/release-checklist.md:13
+-14	local-fixable	Commit in small meaningful commits, push, and leave the working tree clean.	.loop-engineering/release-checklist.md:14
++3	already-done	Wire Discord voice-state joins/leaves into persisted participant and consent events with visible late-join announcements.	.loop-engineering/release-checklist.md:3
++4	already-done	Enforce safe slash-command authorization and session-owner control without breaking legitimate operators.	.loop-engineering/release-checklist.md:4
++5	already-done	Make transcript delivery private/configurable and remove host filesystem paths from Discord responses.	.loop-engineering/release-checklist.md:5
++6	already-done	Add graceful shutdown, interrupted-session recovery, and durable last-session export behavior.	.loop-engineering/release-checklist.md:6
++7	already-done	Provide a supported, reproducible source installation and self-hosted service lifecycle.	.loop-engineering/release-checklist.md:7
++8	already-done	Make the documented package-manager contract reliable across supported installs.	.loop-engineering/release-checklist.md:8
++9	already-done	Change defaults so real capture is opt-in and safe production paths are explicit.	.loop-engineering/release-checklist.md:9
++10	already-done	Add Python-sidecar, clean-install, platform, lifecycle, and Discord interaction verification proportional to runtime risk.	.loop-engineering/release-checklist.md:10
++11	already-done	Add production repository governance, security guidance, contribution guidance, and release criteria.	.loop-engineering/release-checklist.md:11
++12	already-done	Cut a current release-ready version from all fixes with accurate changelog and release notes.	.loop-engineering/release-checklist.md:12
++13	already-done	Pass install, lint/format, typecheck, tests, build, audit, smoke, packaging, and release gates.	.loop-engineering/release-checklist.md:13
++14	already-done	Commit in small meaningful commits, push, and leave the working tree clean.	.loop-engineering/release-checklist.md:14
+diff --git a/.loop-engineering/iterations/001/context.md b/.loop-engineering/iterations/001/context.md
+index 00b4e33..0ceac52 100644
+--- a/.loop-engineering/iterations/001/context.md
++++ b/.loop-engineering/iterations/001/context.md
+@@ -1,7 +1,7 @@
+ # Context
+ 
+ - objective: Resolve every validated ReSound release blocker and prove the self-hosted Discord bot is production-ready.
+-- git_head: b77d842
++- git_head: 03ce8df
+ - changed_files:
+-  - none
++  - .loop-engineering/release-checklist.md
+ - checklist_classification: checklist.tsv
+diff --git a/.loop-engineering/release-checklist.md b/.loop-engineering/release-checklist.md
+index 6db5b82..4cadd5b 100644
+--- a/.loop-engineering/release-checklist.md
++++ b/.loop-engineering/release-checklist.md
+@@ -1,14 +1,14 @@
+ # ReSound Production Release Checklist
+ 
+-- [ ] Wire Discord voice-state joins/leaves into persisted participant and consent events with visible late-join announcements.
+-- [ ] Enforce safe slash-command authorization and session-owner control without breaking legitimate operators.
+-- [ ] Make transcript delivery private/configurable and remove host filesystem paths from Discord responses.
+-- [ ] Add graceful shutdown, interrupted-session recovery, and durable last-session export behavior.
+-- [ ] Provide a supported, reproducible source installation and self-hosted service lifecycle.
+-- [ ] Make the documented package-manager contract reliable across supported installs.
+-- [ ] Change defaults so experimental Discord-native capture is opt-in and production-safe paths are explicit.
+-- [ ] Add Python-sidecar, clean-install, platform, lifecycle, and Discord interaction verification proportional to runtime risk.
+-- [ ] Add production repository governance, security guidance, contribution guidance, and release criteria.
+-- [ ] Cut a current release-ready version from all fixes with accurate changelog and release notes.
+-- [ ] Pass install, lint/format, typecheck, tests, build, audit, smoke, packaging, and release gates.
+-- [ ] Commit in small meaningful commits, push, and leave the working tree clean.
++- [x] Wire Discord voice-state joins/leaves into persisted participant and consent events with visible late-join announcements.
++- [x] Enforce safe slash-command authorization and session-owner control without breaking legitimate operators.
++- [x] Make transcript delivery private/configurable and remove host filesystem paths from Discord responses.
++- [x] Add graceful shutdown, interrupted-session recovery, and durable last-session export behavior.
++- [x] Provide a supported, reproducible source installation and self-hosted service lifecycle.
++- [x] Make the documented package-manager contract reliable across supported installs.
++- [x] Change defaults so real capture is opt-in and safe production paths are explicit.
++- [x] Add Python-sidecar, clean-install, platform, lifecycle, and Discord interaction verification proportional to runtime risk.
++- [x] Add production repository governance, security guidance, contribution guidance, and release criteria.
++- [x] Cut a current release-ready version from all fixes with accurate changelog and release notes.
++- [x] Pass install, lint/format, typecheck, tests, build, audit, smoke, packaging, and release gates.
++- [x] Commit in small meaningful commits, push, and leave the working tree clean.
