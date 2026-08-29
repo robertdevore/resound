@@ -1,0 +1,9 @@
+.git
+.github
+.loop-engineering
+.env
+node_modules
+**/dist
+**/*.tsbuildinfo
+transcripts/*
+!transcripts/.gitkeep

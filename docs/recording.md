@@ -1,9 +1,9 @@
-# Recording a real Discord call (macOS) — the for-real path
+# Recording a Discord call from macOS system audio
 
-Discord's mandatory DAVE/E2EE breaks bot-side voice receive (see
-[providers.md](providers.md)). The reliable way to get a **real** transcript is
-to capture the call's audio at the macOS system level — the audio is already
-decrypted as it plays on your Mac — and transcribe it locally. No bot needed.
+This is an alternative to the production Discord-native receiver. It captures
+audio after the Discord desktop app has played it, then transcribes locally. It
+is useful when a bot cannot join the channel or you deliberately want a mixed
+recording. No voice-receive bot is required.
 
 This machine is already set up: ffmpeg, BlackHole 2ch, a Multi-Output Device, a
 mic, and whisper.cpp + a model are installed. `.env` is preconfigured. So the
@@ -40,8 +40,8 @@ pnpm cli record --title "Team Sync"      # talk… then press Enter or q
    curl -L -o models/ggml-base.en.bin \
      https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
    ```
-2. **Create a Multi-Output Device** (Audio MIDI Setup → `+` → *Create Multi-Output
-   Device*) and tick **both** your headphones/speakers **and** BlackHole 2ch.
+2. **Create a Multi-Output Device** (Audio MIDI Setup → `+` → _Create Multi-Output
+   Device_) and tick **both** your headphones/speakers **and** BlackHole 2ch.
 3. **Send the call to it.** Either set the Multi-Output Device as your system
    output, or, better, set it only for Discord: Discord → **Settings → Voice &
    Video → Output Device → Multi-Output Device**. Keep your mic as the **Input
@@ -72,7 +72,7 @@ Microphone). Capturing BlackHole counts as audio input too.
 
 - **One mixed track → no per-speaker labels.** Everyone is attributed to the
   first participant. True per-speaker diarization needs separate audio per
-  person (the Discord receive adapter, once DAVE receive works). For a meeting
+  person, as provided by the Discord-native receiver. For a meeting
   summary + searchable transcript this is usually fine.
 - Use a bigger model (`ggml-small.en.bin`, `ggml-medium.en.bin`) for higher
   accuracy at the cost of speed; point `RESOUND_WHISPER_MODEL` at it.
@@ -90,7 +90,8 @@ pnpm bot:start
 ```
 
 Then use `/resound start` and `/resound stop` in Discord. The title is optional,
-and `/resound stop` attaches the finished Markdown transcript automatically.
+and `/resound stop` privately delivers the finished Markdown transcript by
+default.
 The bot must run on the same Mac that is capturing audio. This is intentionally
 local-first: every operator can run their own bot and recorder for their own
 Discord server without depending on a central hosted service.

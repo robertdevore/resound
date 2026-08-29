@@ -1,0 +1,25 @@
+[Unit]
+Description=ReSound Discord transcription bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=resound
+Group=resound
+WorkingDirectory=/opt/resound
+EnvironmentFile=/etc/resound/resound.env
+Environment=NODE_ENV=production
+Environment=RESOUND_OUTPUT_DIR=/var/lib/resound
+ExecStart=/usr/bin/node /opt/resound/apps/bot/dist/index.js
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/resound
+
+[Install]
+WantedBy=multi-user.target

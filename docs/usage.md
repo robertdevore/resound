@@ -13,28 +13,31 @@ cp .env.example .env   # without .env, Resound falls back to mock mode
 
 ## Environment variables
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `RESOUND_OUTPUT_DIR` | `./transcripts` | Where session folders are written |
-| `RESOUND_TRANSCRIBER` | `mock` | `mock` \| `local-whisper` \| `openai-compatible` \| `openai` \| `deepgram` \| `assemblyai` |
-| `RESOUND_TRANSCRIBER_MODEL` | provider default | Override the model |
-| `RESOUND_WHISPER_COMMAND` | `whisper-cli` | local-whisper binary |
-| `RESOUND_WHISPER_FORMAT` | `whisper.cpp` | `whisper.cpp` \| `openai-whisper` |
-| `RESOUND_WHISPER_MODEL` | — | local-whisper model name / ggml path |
-| `RESOUND_OPENAI_BASE_URL` | api.openai.com | OpenAI-compatible endpoint base URL |
-| `RESOUND_OPENAI_API_KEY` / `OPENAI_API_KEY` | — | key for the compatible endpoint |
-| `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY` | — | For scaffolded providers |
-| `DISCORD_TOKEN` / `DISCORD_CLIENT_ID` | — | Discord bot |
-| `DISCORD_GUILD_ID` | — | Register slash commands to one guild (instant) |
-| `RESOUND_BOT_MODE` | `discord` in the template | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto` |
-| `RESOUND_DISCORD_RECEIVER_BACKEND` | `pycord` | `auto` \| `pycord` \| `discordjs` for Discord-native bot receive |
-| `RESOUND_DISCORD_PYTHON` | `python3` on PATH | Python interpreter for the Pycord sidecar |
-| `RESOUND_DISCORD_PYTHONPATH` | — | Extra `PYTHONPATH` entries for the Pycord sidecar |
-| `RESOUND_AUDIO_DEVICE` | — | Single local input device for `record` / local-capture |
-| `RESOUND_AUDIO_SYSTEM_DEVICE` | — | Local system/call audio input, usually BlackHole |
-| `RESOUND_AUDIO_MIC_DEVICE` | — | Local microphone input |
-| `STRATA_INGEST_COMMAND` | `strata notes add --file` | Strata sink command |
-| `TOTALRECALL_INGEST_COMMAND` | `totalrecall ingest` | TotalRecall sink command |
+| Variable                                    | Default                   | Purpose                                                                                    |
+| ------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------ |
+| `RESOUND_OUTPUT_DIR`                        | `./transcripts`           | Where session folders are written                                                          |
+| `RESOUND_TRANSCRIBER`                       | `mock`                    | `mock` \| `local-whisper` \| `openai-compatible` \| `openai` \| `deepgram` \| `assemblyai` |
+| `RESOUND_TRANSCRIBER_MODEL`                 | provider default          | Override the model                                                                         |
+| `RESOUND_WHISPER_COMMAND`                   | `whisper-cli`             | local-whisper binary                                                                       |
+| `RESOUND_WHISPER_FORMAT`                    | `whisper.cpp`             | `whisper.cpp` \| `openai-whisper`                                                          |
+| `RESOUND_WHISPER_MODEL`                     | —                         | local-whisper model name / ggml path                                                       |
+| `RESOUND_OPENAI_BASE_URL`                   | api.openai.com            | OpenAI-compatible endpoint base URL                                                        |
+| `RESOUND_OPENAI_API_KEY` / `OPENAI_API_KEY` | —                         | key for the compatible endpoint                                                            |
+| `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY`   | —                         | For scaffolded providers                                                                   |
+| `DISCORD_TOKEN` / `DISCORD_CLIENT_ID`       | —                         | Discord bot                                                                                |
+| `DISCORD_GUILD_ID`                          | —                         | Register slash commands to one guild (instant)                                             |
+| `RESOUND_BOT_MODE`                          | `mock`                    | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto`                        |
+| `RESOUND_DISCORD_RECEIVER_BACKEND`          | `pycord`                  | `auto` \| `pycord` \| `discordjs` for Discord-native bot receive                           |
+| `RESOUND_DISCORD_PYTHON`                    | `python3` on PATH         | Python interpreter for the Pycord sidecar                                                  |
+| `RESOUND_DISCORD_PYTHONPATH`                | —                         | Extra `PYTHONPATH` entries for the Pycord sidecar                                          |
+| `RESOUND_OPERATOR_USER_IDS`                 | —                         | Comma-separated Discord user IDs allowed to operate the bot                                |
+| `RESOUND_OPERATOR_ROLE_IDS`                 | —                         | Comma-separated Discord role IDs allowed to operate the bot                                |
+| `RESOUND_TRANSCRIPT_DELIVERY`               | `ephemeral`               | `ephemeral` \| `channel` \| `disabled`                                                     |
+| `RESOUND_AUDIO_DEVICE`                      | —                         | Single local input device for `record` / local-capture                                     |
+| `RESOUND_AUDIO_SYSTEM_DEVICE`               | —                         | Local system/call audio input, usually BlackHole                                           |
+| `RESOUND_AUDIO_MIC_DEVICE`                  | —                         | Local microphone input                                                                     |
+| `STRATA_INGEST_COMMAND`                     | `strata notes add --file` | Strata sink command                                                                        |
+| `TOTALRECALL_INGEST_COMMAND`                | `totalrecall ingest`      | TotalRecall sink command                                                                   |
 
 ## CLI
 
@@ -77,11 +80,10 @@ resound export design-mock-... --format md > review.md
 
 The session folder under `transcripts/` is a complete, portable artifact.
 
-## Meeting workflow — transcribe a recording (works today, no DAVE)
+## Meeting workflow — transcribe an existing recording
 
-Live Discord voice receive is gated on DAVE/E2EE (see [providers.md](providers.md)),
-so the path that works **right now** for a real meeting is: record the call to an
-audio file, then transcribe the file.
+Importing an existing recording is useful when you do not want the bot in a
+voice channel or need to process historical audio.
 
 1. **Record the meeting audio to a file.** Any of:
    - macOS screen/audio recording, OBS, QuickTime, or Audio Hijack capturing
@@ -114,41 +116,44 @@ audio file, then transcribe the file.
    ```
 
 Limitations to know:
+
 - The OpenAI REST API does not diarize, so speaker labels default to the first
   participant. Real per-speaker labels need the Discord per-user receive adapter
-  (pending DAVE) or pre-split per-speaker audio files.
+  or pre-split per-speaker audio files.
 - OpenAI's transcription endpoint caps upload size (~25 MB). For long meetings,
   split the audio first (e.g. `ffmpeg -i meeting.m4a -f segment -segment_time 600
-  -c copy part-%03d.m4a`) and transcribe each part, or use a provider without
+-c copy part-%03d.m4a`) and transcribe each part, or use a provider without
   that limit.
 
 ## Discord Workflow
 
 There are four bot modes:
 
-| Mode | What it proves / does | Real audio? |
-| --- | --- | --- |
-| `mock` | Slash commands, consent, session state, exports, sample transcript | No |
-| `local-capture` | Slash commands control this machine's configured system/mic recorder | Yes, if local audio routing works |
-| `discord` / `discord-native` | Discord-native receive, preferring the Pycord sidecar and optionally falling back to `@discordjs/voice` | Potentially yes; still requires live DAVE acceptance testing |
-| `auto` | Preflight Discord-native first, then explicit fallback to local-capture if local capture is configured | Yes, but only if one real recorder passes preflight |
+| Mode                         | What it proves / does                                                                                  | Real audio?                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| `mock`                       | Slash commands, consent, session state, exports, sample transcript                                     | No                                                  |
+| `local-capture`              | Slash commands control this machine's configured system/mic recorder                                   | Yes, if local audio routing works                   |
+| `discord` / `discord-native` | Discord-native receive through the supported Pycord DAVE sidecar                                       | Yes                                                 |
+| `auto`                       | Preflight Discord-native first, then explicit fallback to local-capture if local capture is configured | Yes, but only if one real recorder passes preflight |
 
-For reusable real-world use, give each operator their own local setup: they
-create/invite a Discord bot, run Resound on the machine that can hear the call,
-and use `/resound` to control local capture.
+For reusable real-world use, each administrator creates and invites their own
+Discord application and runs ReSound on infrastructure they control.
 
 1. Create an application at <https://discord.com/developers/applications>, add a
-   bot, copy the token and application (client) ID into `.env`.
+   bot, enable **Server Members Intent**, and copy the token and application
+   (client) ID into `.env`.
 2. Invite the bot with the `applications.commands` and `bot` scopes and the
-   *Connect* voice permission.
+   _View Channels_, _Send Messages_, _Attach Files_, and _Connect_ permissions.
 3. Pick a mode in `.env`.
 
    For a command-only smoke test with no real audio:
+
    ```bash
    RESOUND_BOT_MODE=mock
    ```
 
    For real local capture:
+
    ```bash
    RESOUND_BOT_MODE=local-capture
    RESOUND_AUDIO_SYSTEM_DEVICE=1   # BlackHole/system audio from `pnpm cli devices`
@@ -158,6 +163,7 @@ and use `/resound` to control local capture.
    ```
 
    For Discord-native receive with the preferred Pycord sidecar:
+
    ```bash
    python3 -m pip install -U -r packages/audio/python/requirements.txt
    RESOUND_BOT_MODE=discord
@@ -177,15 +183,15 @@ and use `/resound` to control local capture.
    /resound consent
    /resound status
    /resound stop
-   # /resound stop attaches transcript.md automatically
+   # /resound stop privately delivers transcript.md by default
    ```
 
 `/resound start` immediately announces that recording/transcription is active
-(no hidden recording). In `RESOUND_BOT_MODE=local-capture`, the bot process must
-run on the operator machine doing the local audio capture. In
-`RESOUND_BOT_MODE=mock`, it produces full artifacts with a sample transcript.
-See [providers.md](providers.md) for why bot-side voice receive is gated on
-DAVE/E2EE and what still needs live verification.
+(no hidden recording). New arrivals and departures are also announced and
+persisted. In `RESOUND_BOT_MODE=local-capture`, the bot process must run on the
+operator machine doing the local audio capture. In `RESOUND_BOT_MODE=mock`, it
+produces full artifacts with a sample transcript. For production deployment,
+follow [self-hosting](self-hosting.md).
 
 After a real local capture, `/resound stop` reports independent signal checks
 for the system/call track and microphone track. Both must say `audio detected`.

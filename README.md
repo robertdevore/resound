@@ -8,7 +8,7 @@ No hosted service, dashboard, or database is required. Strata and TotalRecall ar
 
 ## Quick start
 
-Requirements: Node.js 20+ and pnpm 9.15+.
+Requirements: Node.js 20, 22, or 24 and pnpm 9 through 11.
 
 ```bash
 corepack enable
@@ -46,31 +46,46 @@ See [recording](docs/recording.md) and [providers](docs/providers.md) for device
 
 ## Commands
 
-| Command | Purpose |
-| --- | --- |
-| `doctor` | Check recorder and transcriber readiness |
-| `audio devices` | List macOS inputs |
-| `record` | Capture and transcribe audio |
-| `transcribe <file>` | Import an existing recording |
-| `mock <title>` | Run the complete offline workflow |
-| `sessions list/show` | Inspect stored sessions |
-| `validate <session>` | Validate consent, manifest, and outputs |
-| `export <session>` | Generate Markdown, JSONL, VTT, and SRT |
-| `summarize` / `action-items` | Regenerate derived artifacts |
-| `sink <target> <session>` | Send to stdout, folder, webhook, Strata, or TotalRecall |
+| Command                      | Purpose                                                 |
+| ---------------------------- | ------------------------------------------------------- |
+| `doctor`                     | Check recorder and transcriber readiness                |
+| `audio devices`              | List macOS inputs                                       |
+| `record`                     | Capture and transcribe audio                            |
+| `transcribe <file>`          | Import an existing recording                            |
+| `mock <title>`               | Run the complete offline workflow                       |
+| `sessions list/show`         | Inspect stored sessions                                 |
+| `validate <session>`         | Validate consent, manifest, and outputs                 |
+| `export <session>`           | Generate Markdown, JSONL, VTT, and SRT                  |
+| `summarize` / `action-items` | Regenerate derived artifacts                            |
+| `sink <target> <session>`    | Send to stdout, folder, webhook, Strata, or TotalRecall |
 
 Run `pnpm cli --help` for all flags.
 
 ## Discord bot
 
-The `/resound` bot exposes consent, status, pause/resume, and recording controls. Configure `.env`, then:
+The `/resound` bot is designed to run on your own Linux server, VPS, NAS, or
+local machine. It joins Discord voice through a DAVE-aware receiver, records
+separate speaker tracks, transcribes them, and keeps the artifacts on your host.
+No ReSound-hosted service is involved.
+
+The safest first run uses mock audio. Copy the environment template, add your
+Discord token and application ID, then:
 
 ```bash
+cp .env.example .env
 pnpm bot:register
 pnpm bot:start
 ```
 
-Recorder modes are `mock`, `local-capture`, `discord-native`, and `auto`. Discord-native receive remains experimental because DAVE/E2EE behavior requires live acceptance testing; local capture and file transcription are the reliable production paths today.
+For real server-side voice capture, install the pinned Python receiver
+dependencies and set `RESOUND_BOT_MODE=discord`. Docker Compose installs the
+complete runtime automatically. See [self-hosting](docs/self-hosting.md) for the
+Discord application permissions, production configuration, upgrades, backups,
+and an end-to-end acceptance check.
+
+Only members with **Manage Server** or an explicit configured operator user/role
+can start sessions. The session owner and operators control recording. Transcript
+downloads are ephemeral by default; public channel delivery is opt-in.
 
 ## Architecture
 
