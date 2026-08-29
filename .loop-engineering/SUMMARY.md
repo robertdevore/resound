@@ -2,7 +2,7 @@
 
 ## Verdict
 
-blocked
+success
 
 ## Completed
 
@@ -21,9 +21,9 @@ blocked
 
 ## Verification
 
-- passed: none
+- passed: diff_check
 - blocked: none
-- failed: diff_check, diff_check, diff_check
+- failed: none
 
 ## Commits
 
@@ -39,4 +39,4 @@ blocked
 
 ## Next Start
 
-- repeated-failure: required gate failed 3 times
+- success: required gates passed
