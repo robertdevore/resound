@@ -1,6 +1,6 @@
 {
   "name": "resound",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "Resound: self-hosted, vendor-neutral Discord voice transcription. Conversations become portable memory.",
