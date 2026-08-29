@@ -2,6 +2,17 @@
 
 All notable changes to Resound are documented here.
 
+## [1.0.1] - 2026-08-29
+
+### Changed
+
+- Updated the production container to Node.js 20.20.2.
+- Updated the supported JavaScript build tooling within the existing major-version contract.
+
+### Security
+
+- Reverified the complete dependency graph with no open Dependabot alerts or known high-severity audit findings.
+
 ## [1.0.0] - 2026-08-29
 
 ### Added
@@ -76,3 +87,4 @@ voice transcription with portable session artifacts.
 [0.1.0]: https://github.com/robertdevore/resound/releases/tag/v0.1.0
 [0.2.0]: https://github.com/robertdevore/resound/releases/tag/v0.2.0
 [1.0.0]: https://github.com/robertdevore/resound/releases/tag/v1.0.0
+[1.0.1]: https://github.com/robertdevore/resound/releases/tag/v1.0.1
