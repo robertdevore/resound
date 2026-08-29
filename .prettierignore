@@ -1,0 +1,9 @@
+node_modules
+dist
+transcripts
+.loop-engineering
+pnpm-lock.yaml
+*.kujo
+.env*
+!.env.example
+!.env.docker.example

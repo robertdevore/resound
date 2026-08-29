@@ -2,6 +2,37 @@
 
 All notable changes to Resound are documented here.
 
+## [1.0.0] - 2026-08-29
+
+### Added
+
+- Production self-hosting through Docker Compose or a hardened systemd service.
+- Session-owner and administrator authorization for recording controls and exports.
+- Durable audio-track metadata, graceful shutdown, restart recovery, and `/resound recover`.
+- Discord voice-state lifecycle tracking for initial occupants, joins, and departures.
+- CI coverage across Node.js 20/22, pnpm 9/11, macOS/Linux, the Python DAVE sidecar, and the container build.
+- Security policy, contribution guidance, templates, and dependency update automation.
+
+### Changed
+
+- Discord-native Pycord/DAVE capture is the supported headless production receiver.
+- New installations start in mock mode and deliver transcripts ephemerally by default.
+- Text control channels and recorded voice channels are stored separately.
+- Session manifest schema 1.2 records durable per-speaker audio tracks.
+
+### Fixed
+
+- Prevented ordinary server members from starting, stopping, or exporting sessions.
+- Prevented transcript files and host paths from being posted publicly by default.
+- Persisted late joins, departures, and existing voice-channel participants.
+- Made frozen installs compatible with supported pnpm major versions.
+
+### Security
+
+- Centralized the complete slash-command authorization matrix.
+- Disabled commands in direct messages and kept operational errors private.
+- Hardened the default container with a non-root user, read-only filesystem, and no-new-privileges.
+
 ## [0.2.0] - 2026-08-11
 
 ### Changed
@@ -44,3 +75,4 @@ voice transcription with portable session artifacts.
 
 [0.1.0]: https://github.com/robertdevore/resound/releases/tag/v0.1.0
 [0.2.0]: https://github.com/robertdevore/resound/releases/tag/v0.2.0
+[1.0.0]: https://github.com/robertdevore/resound/releases/tag/v1.0.0

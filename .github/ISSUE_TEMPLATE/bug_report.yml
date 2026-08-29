@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible ReSound problem
+body:
+  - type: markdown
+    attributes:
+      value: Do not include Discord tokens, API keys, private audio, or transcripts. Report security issues privately through the Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: ReSound version or commit
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Include expected behavior and safe reproduction steps.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node, pnpm, Python, bot mode, receiver, and transcriber.
