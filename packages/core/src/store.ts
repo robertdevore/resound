@@ -12,10 +12,14 @@ export function readManifest(dir: string): SessionManifest {
 
 /** Write a manifest.json (pretty-printed) into a session directory. */
 export function writeManifest(dir: string, manifest: SessionManifest): void {
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const manifestPath = sessionPaths(dir).manifest;
   const tempPath = `${manifestPath}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+  fs.writeFileSync(tempPath, JSON.stringify(manifest, null, 2) + "\n", {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  fs.chmodSync(tempPath, 0o600);
   fs.renameSync(tempPath, manifestPath);
 }
 

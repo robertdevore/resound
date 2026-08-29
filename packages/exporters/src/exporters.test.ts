@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createManifest, addParticipant, type TranscriptSegment } from "@resound/core";
+import {
+  createManifest,
+  addParticipant,
+  type TranscriptSegment,
+} from "@resound/core";
 import { toMarkdown } from "./markdown.js";
 import { toSrt, toVtt } from "./subtitles.js";
 import { extractActionItems } from "./summary.js";
@@ -11,7 +15,10 @@ import { writeSessionOutputs } from "./write.js";
 const at = new Date("2026-06-22T14:32:00Z");
 
 function fixture() {
-  const manifest = createManifest({ title: "Engineering Standup", startedAt: at });
+  const manifest = createManifest({
+    title: "Engineering Standup",
+    startedAt: at,
+  });
   addParticipant(manifest, { id: "1", username: "Robert" });
   addParticipant(manifest, { id: "2", username: "Ashley" });
   const segments: TranscriptSegment[] = [
@@ -21,7 +28,7 @@ function fixture() {
       speaker: "Robert",
       user_id: "1",
       text: "Let's review blockers first.",
-      confidence: 0.94
+      confidence: 0.94,
     },
     {
       ts: "00:03:18",
@@ -29,8 +36,8 @@ function fixture() {
       speaker: "Ashley",
       user_id: "2",
       text: "I will ship the migration by tomorrow.",
-      confidence: 0.91
-    }
+      confidence: 0.91,
+    },
   ];
   return { manifest, segments };
 }
@@ -80,7 +87,17 @@ describe("output writing", () => {
 
     writeSessionOutputs({ manifest, segments, dir });
 
-    expect(fs.existsSync(path.join(dir, "exports", "transcript.md"))).toBe(true);
+    expect(fs.existsSync(path.join(dir, "exports", "transcript.md"))).toBe(
+      true,
+    );
+    if (process.platform !== "win32") {
+      expect(
+        fs.statSync(path.join(dir, "exports", "transcript.md")).mode & 0o777,
+      ).toBe(0o600);
+      expect(fs.statSync(path.join(dir, "manifest.json")).mode & 0o777).toBe(
+        0o600,
+      );
+    }
     expect(fs.existsSync(path.join(dir, "exports", "summary.md"))).toBe(true);
   });
 });

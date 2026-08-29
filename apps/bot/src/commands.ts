@@ -7,20 +7,38 @@ import { SlashCommandBuilder } from "discord.js";
 export const resoundCommand = new SlashCommandBuilder()
   .setName("resound")
   .setDescription("Resound voice transcription")
+  .setDMPermission(false)
   .addSubcommand((s) =>
     s
       .setName("start")
       .setDescription("Start a recording/transcription session")
       .addStringOption((o) =>
-        o.setName("title").setDescription("Optional session title")
-      )
+        o.setName("title").setDescription("Optional session title"),
+      ),
   )
-  .addSubcommand((s) => s.setName("stop").setDescription("Stop and finalize the session"))
-  .addSubcommand((s) => s.setName("doctor").setDescription("Run recorder/transcriber preflight checks"))
+  .addSubcommand((s) =>
+    s.setName("stop").setDescription("Stop and finalize the session"),
+  )
+  .addSubcommand((s) =>
+    s
+      .setName("doctor")
+      .setDescription("Run recorder/transcriber preflight checks"),
+  )
   .addSubcommand((s) => s.setName("pause").setDescription("Pause recording"))
   .addSubcommand((s) => s.setName("resume").setDescription("Resume recording"))
-  .addSubcommand((s) => s.setName("status").setDescription("Show current session status"))
-  .addSubcommand((s) => s.setName("consent").setDescription("Record your consent to be transcribed"))
+  .addSubcommand((s) =>
+    s.setName("status").setDescription("Show current session status"),
+  )
+  .addSubcommand((s) =>
+    s
+      .setName("consent")
+      .setDescription("Record your consent to be transcribed"),
+  )
+  .addSubcommand((s) =>
+    s
+      .setName("recover")
+      .setDescription("Retry an interrupted session from finalized audio"),
+  )
   .addSubcommand((s) =>
     s
       .setName("export")
@@ -33,9 +51,9 @@ export const resoundCommand = new SlashCommandBuilder()
             { name: "markdown", value: "markdown" },
             { name: "jsonl", value: "jsonl" },
             { name: "vtt", value: "vtt" },
-            { name: "srt", value: "srt" }
-          )
-      )
+            { name: "srt", value: "srt" },
+          ),
+      ),
   );
 
 export const commandsJson = [resoundCommand.toJSON()];

@@ -8,14 +8,14 @@ import {
   buildSystemFfmpegArgs,
   isCleanSystemRecorderClose,
   pcmDurationSeconds,
-  pcmToWav
+  pcmToWav,
 } from "./index.js";
 
 describe("mock recorder", () => {
   it("writes chunk files and returns chunk metadata", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-audio-"));
     const recorder = new MockRecorder({
-      participants: [{ id: "9", username: "Jelena" }]
+      participants: [{ id: "9", username: "Jelena" }],
     });
     await recorder.start({ sessionDir: dir });
     const chunks = await recorder.stop();
@@ -61,7 +61,7 @@ describe("system recorder helpers", () => {
       systemOutFile: "/tmp/system.wav",
       micOutFile: "/tmp/mic.wav",
       systemDevice: "1",
-      micDevice: "2"
+      micDevice: "2",
     });
     const rendered = args.join(" ");
     expect(rendered).toContain("-f avfoundation -i :1");
@@ -76,7 +76,9 @@ describe("system recorder helpers", () => {
   });
 
   it("requires at least one capture device", () => {
-    expect(() => buildSystemFfmpegArgs({ outFile: "/tmp/a.wav" })).toThrow(/No capture device/);
+    expect(() => buildSystemFfmpegArgs({ outFile: "/tmp/a.wav" })).toThrow(
+      /No capture device/,
+    );
   });
 
   it("accepts intentional ffmpeg stop exits", () => {
@@ -129,15 +131,23 @@ function stop() {
 }
 
 process.stdin.setEncoding("utf8");
+if (process.argv.includes("--token") || process.env.RESOUND_SIDECAR_TOKEN !== "token") {
+  console.log(JSON.stringify({event: "error", message: "unsafe token transport"}));
+  process.exit(1);
+}
 process.stdin.on("data", (chunk) => {
   if (String(chunk).includes("stop")) stop();
 });
 process.stdin.on("end", stop);
 `,
-      "utf8"
+      "utf8",
     );
     const launcher = path.join(dir, "fake-python.sh");
-    fs.writeFileSync(launcher, `#!/bin/sh\nexec "${process.execPath}" "${driver}" "$@"\n`, "utf8");
+    fs.writeFileSync(
+      launcher,
+      `#!/bin/sh\nexec "${process.execPath}" "${driver}" "$@"\n`,
+      "utf8",
+    );
     fs.chmodSync(launcher, 0o755);
     return launcher;
   }
@@ -150,13 +160,20 @@ process.stdin.on("end", stop);
       guildId: "123",
       channelId: "456",
       pythonPath,
-      startupTimeoutMs: 2_000
+      startupTimeoutMs: 10_000,
     });
 
-    const preflight = await recorder.preflight({ sessionDir: dir, strictConsent: true });
+    const preflight = await recorder.preflight({
+      sessionDir: dir,
+      strictConsent: true,
+    });
     expect(preflight.status).toBe("warning");
     expect(preflight.errors).toEqual([]);
-    expect(preflight.dependencies.some((dep) => dep.name === "pycord-sidecar" && dep.ok)).toBe(true);
+    expect(
+      preflight.dependencies.some(
+        (dep) => dep.name === "pycord-sidecar" && dep.ok,
+      ),
+    ).toBe(true);
 
     await recorder.start({ sessionDir: dir });
     expect(recorder.getHealth().status).toBe("recording");
@@ -166,5 +183,69 @@ process.stdin.on("end", stop);
     expect(chunks[0]!.path).toContain("mixed.wav");
     expect(recorder.getHealth().status).toBe("warning");
     expect(recorder.captureSummary()).toEqual(["sidecar smoke warning"]);
+  });
+
+  it("terminates a sidecar that misses the startup deadline", async () => {
+    const dir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "resound-pycord-timeout-"),
+    );
+    const driver = path.join(dir, "hung.mjs");
+    const pidFile = path.join(dir, "pid");
+    fs.writeFileSync(
+      driver,
+      `import fs from "node:fs"; fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); setInterval(() => {}, 1000);`,
+      "utf8",
+    );
+    const launcher = path.join(dir, "fake-python.sh");
+    fs.writeFileSync(
+      launcher,
+      `#!/bin/sh\necho $$ > ${JSON.stringify(pidFile)}\nif [ "$1" = "${path.resolve("packages/audio/python/discord_native_sidecar.py")}" ] && [ "$2" = "--probe" ]; then echo '{"event":"ready","dave":true,"dave_receive":true}'; exit 0; fi\nexec "${process.execPath}" "${driver}"\n`,
+      "utf8",
+    );
+    fs.chmodSync(launcher, 0o755);
+    const recorder = new PycordDiscordRecorder({
+      token: "token",
+      guildId: "123",
+      channelId: "456",
+      pythonPath: launcher,
+      startupTimeoutMs: 250,
+    });
+
+    await expect(recorder.start({ sessionDir: dir })).rejects.toThrow(
+      /did not become ready/,
+    );
+    const pid = Number(fs.readFileSync(pidFile, "utf8"));
+    expect(() => process.kill(pid, 0)).toThrow();
+  });
+
+  it("forces down a sidecar that misses the stop deadline", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-pycord-stop-"));
+    const driver = path.join(dir, "wedged.mjs");
+    const pidFile = path.join(dir, "pid");
+    fs.writeFileSync(
+      driver,
+      `import fs from "node:fs"; fs.writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); console.log(JSON.stringify({event:"ready",dave:true,dave_receive:true})); process.stdin.resume(); setInterval(() => {}, 1000);`,
+      "utf8",
+    );
+    const launcher = path.join(dir, "fake-python.sh");
+    fs.writeFileSync(
+      launcher,
+      `#!/bin/sh\nexec "${process.execPath}" "${driver}"\n`,
+      "utf8",
+    );
+    fs.chmodSync(launcher, 0o755);
+    const recorder = new PycordDiscordRecorder({
+      token: "token",
+      guildId: "123",
+      channelId: "456",
+      pythonPath: launcher,
+      startupTimeoutMs: 10_000,
+      stopTimeoutMs: 250,
+    });
+
+    await recorder.start({ sessionDir: dir });
+    await expect(recorder.stop()).rejects.toThrow(/did not stop/);
+    const pid = Number(fs.readFileSync(pidFile, "utf8"));
+    expect(() => process.kill(pid, 0)).toThrow();
   });
 });

@@ -1,12 +1,10 @@
 /**
  * Audio capture abstraction.
  *
- * IMPORTANT: Discord voice receive now sits behind the DAVE end-to-end
- * encryption protocol (see docs/providers.md). Real receive support depends on
- * the chosen Discord voice library finalizing DAVE. The Recorder interface is
- * deliberately decoupled from Discord so the rest of Resound (sessions,
- * transcription, exporters, sinks) is ready the moment a working voice adapter
- * lands. Until then, MockRecorder drives the whole pipeline.
+ * Discord voice receive sits behind the DAVE end-to-end encryption protocol
+ * (see docs/providers.md). The supported Pycord sidecar is DAVE-aware. The
+ * Recorder interface remains decoupled from Discord so capture backends can be
+ * tested, replaced, and deployed independently.
  */
 
 export interface AudioChunk {

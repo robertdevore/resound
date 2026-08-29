@@ -5,7 +5,7 @@ import {
   type SessionOutputs,
   type SessionStatus,
   type SessionSource,
-  type StartedBy
+  type StartedBy,
 } from "./types.js";
 
 /** Lower-case, dash-separated, filesystem-safe slug. */
@@ -23,14 +23,14 @@ export function slugify(input: string): string {
 
 function datePart(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate()
+    d.getDate(),
   ).padStart(2, "0")}`;
 }
 
 function timePart(d: Date): string {
-	return `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(
-		d.getSeconds()
-	).padStart(2, "0")}${String(d.getMilliseconds()).padStart(3, "0")}`;
+  return `${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}${String(
+    d.getSeconds(),
+  ).padStart(2, "0")}${String(d.getMilliseconds()).padStart(3, "0")}`;
 }
 
 /** The canonical default output file names. */
@@ -41,7 +41,7 @@ export function defaultOutputs(): SessionOutputs {
     vtt: "transcript.vtt",
     srt: "transcript.srt",
     summary: "summary.md",
-    action_items: "action-items.md"
+    action_items: "action-items.md",
   };
 }
 
@@ -55,7 +55,7 @@ export interface BuildSessionIdOptions {
 export function buildSessionId(opts: BuildSessionIdOptions): string {
   const at = opts.at ?? new Date();
   const source = opts.source ?? "discord";
-	return `${datePart(at)}-${timePart(at)}-${source}-${slugify(opts.title)}`;
+  return `${datePart(at)}-${timePart(at)}-${source}-${slugify(opts.title)}`;
 }
 
 /**
@@ -75,6 +75,7 @@ export interface CreateManifestOptions {
   selectedCaptureMode?: CaptureMode;
   guildId?: string;
   channelId?: string;
+  voiceChannelId?: string;
   startedBy?: StartedBy;
   startedAt?: Date;
   status?: SessionStatus;
@@ -92,12 +93,13 @@ export function createManifest(opts: CreateManifestOptions): SessionManifest {
     session_id: buildSessionId({
       title: opts.title,
       source: opts.source,
-      at: startedAt
+      at: startedAt,
     }),
     title: opts.title,
     source: opts.source ?? "discord",
     guild_id: opts.guildId ?? "",
     channel_id: opts.channelId ?? "",
+    voice_channel_id: opts.voiceChannelId ?? "",
     started_at: startedAt.toISOString(),
     ended_at: "",
     status: opts.status ?? "created",
@@ -106,9 +108,9 @@ export function createManifest(opts: CreateManifestOptions): SessionManifest {
     selected_capture_mode: opts.selectedCaptureMode ?? "",
     recorder: {
       id: opts.recorderId ?? "",
-      mode: opts.selectedCaptureMode ?? "mock"
+      mode: opts.selectedCaptureMode ?? "mock",
     },
-    audio_files: {},
+    audio_files: { tracks: [] },
     audio_health: [],
     participants: [],
     consent_events: [],
@@ -116,8 +118,8 @@ export function createManifest(opts: CreateManifestOptions): SessionManifest {
     transcriber: {
       provider: opts.transcriberProvider ?? "",
       model: opts.transcriberModel ?? "",
-      profile: opts.transcriberProfile
+      profile: opts.transcriberProfile,
     },
-    warnings: []
+    warnings: [],
   };
 }

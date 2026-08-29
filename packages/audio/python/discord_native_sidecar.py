@@ -5,6 +5,7 @@ import argparse
 import asyncio
 import inspect
 import json
+import os
 import struct
 import sys
 import threading
@@ -346,7 +347,11 @@ async def run_recording(args: argparse.Namespace) -> int:
             # Pass a callback argument so Pycord schedules the completion
             # callback after its receive workers have stopped.
             vc.start_recording(sink, after_callback, None)
-            emit("ready", dave=bool(getattr(vc, "is_dave_connection", lambda: False)()))
+            emit(
+                "ready",
+                dave=bool(getattr(vc, "is_dave_connection", lambda: False)()),
+                dave_receive=True,
+            )
         except Exception as exc:
             emit("error", message=f"Failed to connect or start recording: {exc}")
             await client.close()
@@ -377,6 +382,7 @@ async def run_recording(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    os.umask(0o077)
     parser = argparse.ArgumentParser()
     parser.add_argument("--probe", action="store_true")
     parser.add_argument("--token")
@@ -388,6 +394,7 @@ def main() -> int:
     if args.probe:
         return probe()
 
+    args.token = args.token or os.environ.get("RESOUND_SIDECAR_TOKEN")
     if not all([args.token, args.guild_id, args.channel_id, args.session_dir]):
         emit("error", message="Missing required arguments for Discord-native sidecar recording.")
         return 1

@@ -29,7 +29,7 @@ const REQUIRED_MANIFEST_FIELDS: (keyof SessionManifest)[] = [
   "audio_health",
   "outputs",
   "transcriber",
-  "warnings"
+  "warnings",
 ];
 
 /** Validate a parsed manifest object in isolation (no filesystem). */
@@ -48,14 +48,24 @@ export function validateManifest(manifest: unknown): ValidationResult {
 
   if (m.schema_version && m.schema_version !== SCHEMA_VERSION) {
     warnings.push(
-      `manifest schema_version is "${m.schema_version}", expected "${SCHEMA_VERSION}"`
+      `manifest schema_version is "${m.schema_version}", expected "${SCHEMA_VERSION}"`,
     );
+  }
+  if (
+    m.schema_version === SCHEMA_VERSION &&
+    m.source === "discord" &&
+    m.selected_capture_mode === "discord-native" &&
+    (typeof m.voice_channel_id !== "string" || m.voice_channel_id.length === 0)
+  ) {
+    errors.push("manifest missing required field: voice_channel_id");
   }
 
   const consent = m.consent_events;
   if (Array.isArray(consent)) {
     if (consent.length === 0) {
-      errors.push("consent_events is empty — Resound requires recorded consent");
+      errors.push(
+        "consent_events is empty — Resound requires recorded consent",
+      );
     }
   } else if ("consent_events" in m) {
     errors.push("consent_events must be an array");
@@ -69,6 +79,17 @@ export function validateManifest(manifest: unknown): ValidationResult {
     errors.push("audio_health must be an array");
   }
 
+  if ("audio_files" in m) {
+    if (typeof m.audio_files !== "object" || m.audio_files === null) {
+      errors.push("audio_files must be an object");
+    } else if (
+      m.schema_version === SCHEMA_VERSION &&
+      !Array.isArray((m.audio_files as Record<string, unknown>).tracks)
+    ) {
+      errors.push("audio_files.tracks must be an array");
+    }
+  }
+
   if ("warnings" in m && !Array.isArray(m.warnings)) {
     errors.push("warnings must be an array");
   }
@@ -78,7 +99,14 @@ export function validateManifest(manifest: unknown): ValidationResult {
       errors.push("outputs must be an object");
     } else {
       const outputs = m.outputs as Record<string, unknown>;
-      for (const field of ["jsonl", "markdown", "vtt", "srt", "summary", "action_items"]) {
+      for (const field of [
+        "jsonl",
+        "markdown",
+        "vtt",
+        "srt",
+        "summary",
+        "action_items",
+      ]) {
         if (typeof outputs[field] !== "string" || outputs[field].length === 0) {
           errors.push(`outputs.${field} must be a non-empty string`);
         }
@@ -99,22 +127,32 @@ export function validateSession(dir: string): ValidationResult {
   const warnings: string[] = [];
 
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) {
-    return { valid: false, errors: [`session directory not found: ${dir}`], warnings };
+    return {
+      valid: false,
+      errors: [`session directory not found: ${dir}`],
+      warnings,
+    };
   }
 
   const manifestPath = sessionPaths(dir).manifest;
   if (!fs.existsSync(manifestPath)) {
-    return { valid: false, errors: [`missing manifest.json in ${dir}`], warnings };
+    return {
+      valid: false,
+      errors: [`missing manifest.json in ${dir}`],
+      warnings,
+    };
   }
 
   let manifest: SessionManifest;
   try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as SessionManifest;
+    manifest = JSON.parse(
+      fs.readFileSync(manifestPath, "utf8"),
+    ) as SessionManifest;
   } catch (err) {
     return {
       valid: false,
       errors: [`manifest.json is not valid JSON: ${(err as Error).message}`],
-      warnings
+      warnings,
     };
   }
 
@@ -136,15 +174,18 @@ export function validateSession(dir: string): ValidationResult {
     ["vtt", paths.vtt],
     ["srt", paths.srt],
     ["summary", paths.summary],
-    ["action_items", paths.actionItems]
+    ["action_items", paths.actionItems],
   ];
   for (const [label, p] of declared) {
-    if (!fs.existsSync(p)) warnings.push(`declared output "${label}" not found: ${p}`);
+    if (!fs.existsSync(p))
+      warnings.push(`declared output "${label}" not found: ${p}`);
   }
 
   // The canonical JSONL, if present, must parse.
   if (fs.existsSync(paths.jsonl)) {
-    const { errors: jsonlErrors } = parseJsonl(fs.readFileSync(paths.jsonl, "utf8"));
+    const { errors: jsonlErrors } = parseJsonl(
+      fs.readFileSync(paths.jsonl, "utf8"),
+    );
     errors.push(...jsonlErrors.map((e) => `transcript.jsonl: ${e}`));
   } else {
     errors.push("canonical transcript.jsonl is missing");

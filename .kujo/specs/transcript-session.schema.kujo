@@ -11,6 +11,7 @@ spec transcript-session {
   field source          enum["discord","file","mock"] required
   field guild_id        string
   field channel_id      string
+  field voice_channel_id string
   field started_at      datetime required
   field ended_at        datetime           # empty while in progress
 

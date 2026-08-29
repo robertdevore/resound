@@ -4,7 +4,7 @@ import {
   sessionPaths,
   toJsonl,
   writeManifest,
-  type TranscriptSession
+  type TranscriptSession,
 } from "@resound/core";
 import { toMarkdown } from "./markdown.js";
 import { toSrt, toVtt } from "./subtitles.js";
@@ -12,7 +12,7 @@ import {
   buildActionItemsMarkdown,
   buildSummary,
   buildSummaryMarkdown,
-  extractActionItems
+  extractActionItems,
 } from "./summary.js";
 
 export interface WriteOptions {
@@ -27,10 +27,10 @@ export interface WriteOptions {
  */
 export function writeSessionOutputs(
   session: TranscriptSession,
-  options: WriteOptions = {}
+  options: WriteOptions = {},
 ): string[] {
   const { manifest, segments, dir } = session;
-  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
   const paths = sessionPaths(dir, manifest);
   const written: string[] = [];
 
@@ -43,12 +43,13 @@ export function writeSessionOutputs(
     [paths.vtt, toVtt(segments)],
     [paths.srt, toSrt(segments)],
     [paths.summary, buildSummaryMarkdown(manifest, segments)],
-    [paths.actionItems, buildActionItemsMarkdown(actionItems)]
+    [paths.actionItems, buildActionItemsMarkdown(actionItems)],
   ];
 
   for (const [p, content] of files) {
-    fs.mkdirSync(path.dirname(p), { recursive: true });
-    fs.writeFileSync(p, content, "utf8");
+    fs.mkdirSync(path.dirname(p), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(p, content, { encoding: "utf8", mode: 0o600 });
+    fs.chmodSync(p, 0o600);
     written.push(p);
   }
 

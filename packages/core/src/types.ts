@@ -6,7 +6,7 @@
  * consume it. Nothing here depends on Discord or any transcription vendor.
  */
 
-export const SCHEMA_VERSION = "1.1.0";
+export const SCHEMA_VERSION = "1.2.0";
 
 export type SessionSource = "discord" | "file" | "mock" | (string & {});
 export type CaptureMode = "mock" | "local-capture" | "discord-native";
@@ -89,6 +89,15 @@ export interface SessionAudioFiles {
   system?: string;
   microphone?: string;
   chunks_dir?: string;
+  tracks: SessionAudioTrackInfo[];
+}
+
+export interface SessionAudioTrackInfo {
+  user_id: string;
+  username: string;
+  path: string;
+  start_seconds: number;
+  duration_seconds: number;
 }
 
 export interface SessionManifest {
@@ -97,7 +106,10 @@ export interface SessionManifest {
   title: string;
   source: SessionSource;
   guild_id: string;
+  /** Discord text channel used for control messages and recording announcements. */
   channel_id: string;
+  /** Discord voice channel being recorded, when applicable. */
+  voice_channel_id: string;
   /** ISO-8601. */
   started_at: string;
   /** ISO-8601. Empty string while a session is in progress. */
