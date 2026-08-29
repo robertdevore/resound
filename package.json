@@ -25,9 +25,9 @@
     "bot:start": "tsx apps/bot/src/index.ts"
   },
   "devDependencies": {
-    "@types/node": "^22.10.0",
-    "prettier": "3.6.2",
-    "tsx": "^4.19.2",
+    "@types/node": "^22.20.1",
+    "prettier": "3.9.6",
+    "tsx": "^4.23.12",
     "typescript": "^5.7.2",
     "vitest": "^3.2.6"
   }
