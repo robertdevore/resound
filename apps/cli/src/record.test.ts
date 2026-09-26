@@ -70,3 +70,32 @@ describe("isInteractiveStopInput", () => {
     expect(isInteractiveStopInput("hello")).toBe(false);
   });
 });
+
+it("fails explicitly when ffmpeg ignores stop, with bounded diagnostics", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { recordAudio } = await import("./record.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-ffmpeg-stop-"));
+  const launcher = path.join(dir, "ffmpeg");
+  fs.writeFileSync(
+    launcher,
+    "#!/bin/sh\nwhile read line; do :; done\nexec sleep 60\n",
+    { mode: 0o700 },
+  );
+  try {
+    const recording = recordAudio({
+      outFile: path.join(dir, "audio.wav"),
+      device: "synthetic",
+      ffmpegPath: launcher,
+      stopTimeoutMs: 100,
+    });
+    recording.stop();
+    await expect(recording.done).rejects.toThrow(/SIGKILL/);
+    expect(
+      fs.statSync(path.join(dir, "audio.wav.stderr.log")).mode & 0o077,
+    ).toBe(0);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

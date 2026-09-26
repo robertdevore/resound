@@ -2,7 +2,12 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { sessionPaths } from "@resound/core";
+import {
+  deadlineMs,
+  diagnosticPreview,
+  runCommand,
+  sessionPaths,
+} from "@resound/core";
 import type {
   AudioChunk,
   Recorder,
@@ -22,6 +27,8 @@ export interface SystemRecorderOptions {
   device?: string;
   ffmpegPath?: string;
   sampleRate?: number;
+  /** Deadline after requesting stop; default 15 seconds. */
+  stopTimeoutMs?: number;
   /** How long to watch ffmpeg for immediate device/permission failures. */
   startupProbeMs?: number;
 }
@@ -40,7 +47,10 @@ function canWriteDir(dir: string): { ok: boolean; detail: string } {
 }
 
 function commandExists(command: string): { ok: boolean; detail: string } {
-  const result = spawnSync(command, ["-version"], { encoding: "utf8" });
+  const result = spawnSync(command, ["-version"], {
+    encoding: "utf8",
+    timeout: 30_000,
+  });
   if (result.error) {
     const code = (result.error as NodeJS.ErrnoException).code;
     if (code === "ENOENT")
@@ -50,7 +60,9 @@ function commandExists(command: string): { ok: boolean; detail: string } {
       detail: `Failed to execute ${command}: ${result.error.message}`,
     };
   }
-  return { ok: true, detail: `Detected ${command}` };
+  return result.status === 0
+    ? { ok: true, detail: `Detected ${command}` }
+    : { ok: false, detail: `${command} -version exited ${result.status}` };
 }
 
 export function buildSystemFfmpegArgs(
@@ -247,6 +259,7 @@ export class SystemRecorder implements Recorder {
   }
 
   async start(options: RecorderStartOptions): Promise<void> {
+    deadlineMs(this.options.stopTimeoutMs, 15_000);
     const paths = sessionPaths(options.sessionDir);
     fs.mkdirSync(paths.audioRaw, { recursive: true });
     this.outFile = path.join(paths.audioRaw, "recording.wav");
@@ -269,11 +282,17 @@ export class SystemRecorder implements Recorder {
       systemOutFile: this.systemOutFile,
       micOutFile: this.micOutFile,
     });
-    const child = spawn(ffmpeg, args, { stdio: ["pipe", "ignore", "pipe"] });
+    const stderrPath = this.outFile + ".stderr.log";
+    const stderrFd = fs.openSync(stderrPath, "w", 0o600);
+    let child;
+    try {
+      child = spawn(ffmpeg, args, { stdio: ["pipe", "ignore", stderrFd] });
+    } finally {
+      fs.closeSync(stderrFd);
+    }
     this.child = child;
 
-    let stderr = "";
-    child.stderr.on("data", (data) => (stderr += String(data)));
+    child.stdin?.on("error", () => child.kill("SIGINT"));
 
     this.done = new Promise((resolve, reject) => {
       child.on("error", (err) => {
@@ -289,7 +308,7 @@ export class SystemRecorder implements Recorder {
         else
           reject(
             new Error(
-              `ffmpeg exited ${code ?? signal}: ${stderr.slice(0, 500)}`,
+              `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
             ),
           );
       });
@@ -348,7 +367,14 @@ export class SystemRecorder implements Recorder {
       this.child.kill("SIGINT");
     }
 
-    const file = await this.done;
+    const timeout = deadlineMs(this.options.stopTimeoutMs, 15_000);
+    const timer = setTimeout(() => this.child?.kill("SIGKILL"), timeout);
+    let file: string;
+    try {
+      file = await this.done;
+    } finally {
+      clearTimeout(timer);
+    }
     const durationSeconds = Math.max(
       0,
       Math.round((Date.now() - this.startedAt) / 1000),
@@ -410,32 +436,22 @@ async function probeLevel(
   file: string,
   label: string,
 ): Promise<string> {
-  return await new Promise((resolve) => {
-    const child = spawn(
+  try {
+    const { code, stderr } = await runCommand(
       ffmpeg,
       ["-hide_banner", "-i", file, "-af", "volumedetect", "-f", "null", "-"],
-      {
-        stdio: ["ignore", "ignore", "pipe"],
-      },
+      60_000,
     );
-    let stderr = "";
-    child.stderr.on("data", (data) => (stderr += String(data)));
-    child.on("error", (err) =>
-      resolve(`⚠️ ${label}: could not inspect audio (${err.message})`),
-    );
-    child.on("close", () => {
-      const max = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/i)?.[1];
-      const mean = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/i)?.[1];
-      const maxDb = max === undefined ? Number.NEGATIVE_INFINITY : Number(max);
-      if (!Number.isFinite(maxDb) || maxDb <= -60) {
-        resolve(
-          `❌ ${label}: silent — check the configured device and macOS audio routing`,
-        );
-      } else {
-        resolve(
-          `✅ ${label}: audio detected (peak ${max} dB, average ${mean ?? "unknown"} dB)`,
-        );
-      }
-    });
-  });
+    if (code !== 0) return `⚠️ ${label}: audio inspection failed (${stderr})`;
+    const max = stderr.match(/max_volume:\s*(-?\d+(?:\.\d+)?) dB/i)?.[1];
+    const mean = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/i)?.[1];
+    const maxDb = max === undefined ? Number.NEGATIVE_INFINITY : Number(max);
+    if (!Number.isFinite(maxDb) || maxDb <= -60) {
+      return `❌ ${label}: silent — check the configured device and macOS audio routing`;
+    } else {
+      return `✅ ${label}: audio detected (peak ${max} dB, average ${mean ?? "unknown"} dB)`;
+    }
+  } catch (error) {
+    return `⚠️ ${label}: could not inspect audio (${(error as Error).message})`;
+  }
 }

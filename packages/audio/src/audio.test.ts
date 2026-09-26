@@ -249,3 +249,33 @@ process.stdin.on("end", stop);
     expect(() => process.kill(pid, 0)).toThrow();
   });
 });
+
+it("allows ongoing finalization work beyond the idle deadline", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-progress-"));
+  const driver = path.join(dir, "progress.mjs");
+  const launcher = path.join(dir, "python");
+  fs.writeFileSync(
+    driver,
+    `console.log(JSON.stringify({event:'ready',dave:true,dave_receive:true}));process.stdin.once('data',()=>{let n=0;const timer=setInterval(()=>{console.log(JSON.stringify({event:'progress',bytesProcessed:++n}));if(n===8){clearInterval(timer);console.log(JSON.stringify({event:'stopped',tracks:[]}));process.exitCode=0;process.stdin.destroy();}},250);});`,
+  );
+  fs.writeFileSync(
+    launcher,
+    `#!/bin/sh\nexec "${process.execPath}" "${driver}"\n`,
+    { mode: 0o700 },
+  );
+  const recorder = new PycordDiscordRecorder({
+    token: "synthetic",
+    guildId: "1",
+    channelId: "2",
+    pythonPath: launcher,
+    startupTimeoutMs: 10000,
+    stopTimeoutMs: 1000,
+  });
+  try {
+    await recorder.start({ sessionDir: dir });
+    await expect(recorder.stop()).resolves.toEqual([]);
+  } finally {
+    await recorder.abort();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
