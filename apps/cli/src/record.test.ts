@@ -99,3 +99,25 @@ it("fails explicitly when ffmpeg ignores stop, with bounded diagnostics", async 
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("rejects instead of throwing from an event when a diagnostic file disappears", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { recordAudio } = await import("./record.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-ffmpeg-log-"));
+  const launcher = path.join(dir, "ffmpeg");
+  const outFile = path.join(dir, "audio.wav");
+  fs.writeFileSync(
+    launcher,
+    `#!/bin/sh\nrm -- "${outFile}.stderr.log"\nexit 1\n`,
+    { mode: 0o700 },
+  );
+  try {
+    await expect(
+      recordAudio({ outFile, device: "synthetic", ffmpegPath: launcher }).done,
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

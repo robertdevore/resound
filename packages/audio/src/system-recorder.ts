@@ -304,13 +304,17 @@ export class SystemRecorder implements Recorder {
         else reject(err);
       });
       child.on("close", (code, signal) => {
-        if (isCleanSystemRecorderClose(code, signal)) resolve(this.outFile!);
-        else
-          reject(
-            new Error(
-              `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
-            ),
-          );
+        try {
+          if (isCleanSystemRecorderClose(code, signal)) resolve(this.outFile!);
+          else
+            reject(
+              new Error(
+                `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
+              ),
+            );
+        } catch (error) {
+          reject(error);
+        }
       });
     });
 
