@@ -2,9 +2,10 @@
 
 ## Repository and scope
 
-- Repository: `robertdevore/resound`, branch `main`.
+- Repository: `robertdevore/resound`; initial branch `main`, current branch
+  `hardening/repository-audit-20260926` (draft PR #12).
 - Starting SHA: `f2b5e10a2b1bcada6fe65f91807d31c32d6dcc96` (clean tree).
-- Ending SHA: `5100158b9da6923871ac29e12c9a64d1a6adaea1` (verified implementation).
+- Ending implementation SHA: `57ea3f8ad3d6cc4c4bb8abdd38b2de3e31f730c0`.
   The following documentation/evidence-only commit contains this report; obtain
   its exact revision with `git log -1 --format=%H -- docs/audits/repository-hardening.md`.
 - Purpose: self-hosted voice capture/import, local or remote transcription, and
@@ -64,7 +65,7 @@ Raw verification receipts: [baseline](evidence/baseline-verification.txt),
 | H10 | P2                  | Validation               | Unsafe output paths escaped the Kujo check result; unreadable canonical files threw from validation.                                                   | Return structured failed checks/errors.                                                                                 | Fixed; malformed-path/file regressions.                    |
 | H11 | P1                  | Development dependencies | Vitest 3.2.7 and mocker affected by GHSA-82fw-gwwq-j7x9.                                                                                               | Upgrade to Vitest 4.1.11, preserve compatible Vite/Node support, frozen lock.                                           | Fixed; 0 audit advisories, full suites pass.               |
 | H12 | P1                  | Build confidentiality    | Docker context excluded `.env` but not alternate env files, models, keys or stray raw audio.                                                           | Extend `.dockerignore` exclusions, retain `.env.example`.                                                               | Fixed by source review; daemon unavailable.                |
-| H13 | P1 / needs evidence | Timeline alignment       | Sidecar subtracts speaker RTP origins and mixes each file from zero. Synthetic independent timestamps produce a huge offset.                           | Preserve evidence and request pinned-receiver contract/live-fixture validation before semantic changes.                 | Open; SignalBox reference below.                           |
+| H13 | P1 / needs evidence | Timeline alignment       | Sidecar subtracts speaker RTP origins and mixes each file from zero. Synthetic independent timestamps produce a huge offset.                           | Anchor speakers to receiver monotonic time; modular per-SSRC deltas; offset-aware mix.                                  | Fixed offline in follow-up; live acceptance pending.       |
 | H14 | P2                  | Sidecar protocol         | Child `exit` could precede stdout drainage of final `stopped` event.                                                                                   | Close protocol reader on child `close`.                                                                                 | Fixed; existing sidecar protocol/deadline tests pass.      |
 
 P0 here is engineering priority for recording privacy, not a claim of critical
@@ -155,25 +156,21 @@ outside the verified offline boundary.
 
 No change to another Kujo repository is required. Strata and TotalRecall command
 interfaces were preserved; no actual transcript was sent to either sink during
-verification. H13 requires checking the pinned **external Pycord** timestamp
-contract, not an assumed upstream defect or a required Kujo migration.
+verification. H13 was resolved in the follow-up below by inspecting the pinned **external
+Pycord** implementation; no upstream change is required.
 
 ## Remaining work and explicit non-changes
 
 - **P0:** no known unresolved source-validated P0 introduced by this pass.
-- **P1 / needs more evidence (H13):** verify receiver clock normalization and
-  alignment. Two immediate synthetic packets, timestamps `1000` and `4000000000`,
-  produce speaker offsets `0` and `83333.3125` seconds while mixed duration is
-  `0.02` seconds. This proves behavior for those inputs, not exposure in the
-  pinned live receiver. Obtain nonprivate real packet fixtures before choosing
-  timestamp/wraparound/silence/mixing semantics.
-- **P2 verification limitation:** run the documented private-channel/macOS/provider
-  acceptance checks. The remote CI matrix passed on Linux and macOS, including
-  Node 20/22, pnpm 9/11, Python sidecar and container build (receipt below).
-- **P2 / needs more evidence:** very long sessions can still fill disk, Python
-  mixing remains CPU work, and external command/HTTP responses may hang or emit
-  large diagnostics. No timeout/retry changes or arbitrary data truncation were
-  made without workload-specific contracts.
+- **P1 (H13): resolved offline in the follow-up below.** Receiver clock semantics
+  were confirmed from the installed pinned source and covered by synthetic tests.
+- **P2 verification limitation:** live private-channel, macOS-device and external
+  provider acceptance needs an operator-designated test setup with consenting
+  participants. Requested during the follow-up; none supplied. No real meetings
+  or private audio were captured to fabricate an acceptance result.
+- **P2 operational responsibility:** recording retention, quotas and diagnostic
+  cleanup depend on the deployment. Explicit failure limits and disk-backed
+  diagnostics now exist; no automatic deletion of recordings was introduced.
 - **P3 / not worth changing:** placeholder provider names, legacy receiver,
   optional sinks and `.kujo` declarative scaffolding remain documented contracts;
   absence of a default caller does not prove they are dead. No cosmetic rewrite.
@@ -232,4 +229,98 @@ passed all five required jobs for revision
 - Container build: 1 min 29 s.
 
 The container result closes the local-daemon verification gap; live recording
-acceptance and H13 remain open. This final receipt changes documentation only.
+acceptance and H13 were open at that checkpoint. The follow-up below resolves H13.
+
+## Follow-up: remaining implementation items
+
+User requested the remaining items on the same branch, starting at
+`528a39cf48a4da2dc53db182eac7b41498f5d16a`. Baseline: the preceding verified
+102-test TypeScript suite, three Python tests and five passing CI jobs.
+Ending implementation SHA: `57ea3f8ad3d6cc4c4bb8abdd38b2de3e31f730c0`. The
+follow-up does not claim live acceptance; it uses deterministic synthetic audio,
+real loopback HTTP and controlled child processes.
+
+| ID  | Priority | Area               | Evidence and root cause                                                                                                                                                                                       | Implementation                                                                                                                                                                  | Status                                                           |
+| --- | -------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| H13 | P1       | Receiver timeline  | Installed pinned Pycord `voice/receive/router.py:feed_rtp` calls `PacketDecoder.process_packet`; `opus.py:_process_packet` preserves original per-SSRC RTP timestamps in `VoiceData`. No common clock exists. | Shared monotonic first-packet anchor; modular RTP deltas, duplicate/overlap handling, sparse silence, warned SSRC/discontinuity realignment; mix at session offsets.            | Fixed, offline regressions.                                      |
+| H15 | P1       | Long finalization  | Eight-speaker Python mixing takes about 3 seconds per 10 seconds of audio locally; a fixed 15-second stop deadline can kill valid long finalization.                                                          | Offload finalization from event loop; increasing byte-progress receipts refresh idle deadline. Stalled work still terminates. Cleanup serialized with writes.                   | Fixed, progress and stall regressions.                           |
+| H16 | P2       | Disk/format bounds | Raw PCM grows with recording length and finalization needs additional speaker/mixed files; RIFF sizes cannot exceed 32 bits.                                                                                  | Check estimated finalization disk reserve each second; explicit low-space/RIFF failures retain raw PCM.                                                                         | Fixed within process; quotas/retention remain operator controls. |
+| H17 | P2       | Commands           | Whisper and ingest runners buffered whole stdout/stderr with no deadline; capture stderr also grew in RAM.                                                                                                    | Shared shell-free runner, finite configurable deadlines, POSIX group termination, private full diagnostic files, 8 KiB previews; direct ffmpeg stderr files and stop deadlines. | Fixed, real-child regressions.                                   |
+| H18 | P2       | HTTP               | Upload copied whole files into Buffer/Blob; requests had no deadline and provider errors buffered full bodies; webhook bodies unused.                                                                         | File-backed Blob; configurable full-response deadline; private streamed error artifacts; cancel webhook response body.                                                          | Fixed, real loopback multipart/stalled-body/large-error tests.   |
+
+### Files and compatibility
+
+- `packages/audio/python/discord_native_sidecar.py`, `test_sidecar.py`: corrected
+  capture offsets and aligned mixing, silence/wrap/overlap/SSRC behavior, private
+  disk reserve/format failures, off-loop finalization. PCM values, WAV encoding
+  and track JSON fields are unchanged. Receive-time alignment is approximate by
+  network/decode jitter; it is not synchronized sender time. The initial fixture
+  with independent clocks now gives offsets 0 and 0.03 seconds when the second
+  packet arrives 30 ms later, not an arbitrary multi-hour timestamp.
+- `packages/audio/src/pycord-discord-recorder.ts`, `audio.test.ts`: additive
+  internal `progress` event, probe deadline, finalization idle deadline. Existing
+  stop configuration now measures inactivity; fake stalled sidecars still fail.
+- `packages/core/src/command.ts`, `command.test.ts`, `http.ts`, `index.ts`: shared
+  additive utilities with disk-backed evidence and bounded output. No package
+  dependencies were added. Successful small command logs are deleted; other
+  diagnostics remain under OS temp until operator/OS cleanup.
+- `packages/transcribers/src/{local-whisper,openai,http.test}.ts` and
+  `packages/sinks/src/{strata,totalrecall,webhook,sinks.test}.ts`: configurable
+  deadlines, streamed upload/errors, released unused HTTP bodies. Existing
+  injected command-runner signatures and sink payloads are unchanged. Requests
+  are never automatically retried after ambiguous remote failures.
+- `apps/cli/src/{record,record.test}.ts`, `packages/audio/src/system-recorder.ts`:
+  ffmpeg writes diagnostics directly to private adjacent files; hung stop fails
+  after 15 seconds; stdin errors are handled; probes have deadlines and failed
+  probes are not reported as silent recordings. `stopTimeoutMs` is additive.
+- `docs/providers.md`: authoritative limits, overrides, evidence cleanup,
+  receiver timing semantics and deployment responsibilities.
+
+Public APIs gained optional `timeoutMs`/`stopTimeoutMs` and core helpers; no
+existing fields were removed. CLI syntax, session schema 1.2.0, configuration
+file formats, sink wire payloads and canonical output formats are unchanged.
+New environment overrides: `RESOUND_WHISPER_TIMEOUT_MS`, `RESOUND_HTTP_TIMEOUT_MS`,
+`RESOUND_SINK_TIMEOUT_MS`. External wrappers must finish within documented limits
+or configure a larger workload-appropriate deadline. Python PCM paths are also
+reused for safe speaker WAV basenames. No Kujo cross-repository change is needed.
+
+### Measured impact and ratchets
+
+- TypeScript regression suite: 102 → 111 tests, 12 → 14 files.
+- Python regression suite: 3 → 8 tests.
+- A 1 MiB subprocess error is preserved exactly on disk and returns under 8.5 KiB
+  of preview/receipt; the same bound is tested for 1 MiB provider errors. This is
+  an output-size assertion, not a claimed heap profile or token estimate.
+- Eight aligned speakers, 10 seconds, three repetitions: baseline median
+  **3.156 s**, current **3.085 s**, byte-identical SHA-256. Runtime is broadly
+  unchanged and varies under concurrent load; no generalized speedup claim.
+  `scripts/benchmarks/mix-throughput.py` pins baseline commit `528a39c` and emits
+  all samples/checksums. See `evidence/mix-throughput.json`.
+- Upload no longer explicitly materializes a full-file Buffer plus Blob in
+  application code. No absolute RSS saving is claimed without profiling.
+- Existing CI already runs the new Python/TypeScript regressions. Timing is
+  measured, not gated; deterministic sample equivalence, output bounds, lifecycle
+  behavior and format failures are regression gates.
+
+### Follow-up verification receipt
+
+Commands use supported Node 24.20.0 (or explicitly Node 22.22.0), not host Node 26.
+Exact command bodies and concise evidence are retained alongside this report:
+
+- `pnpm verify` — formatting, all package builds/types and 111 TypeScript tests.
+- `pnpm test` under Node 22.22.0 — 111 tests.
+- `python3 -m unittest discover -s packages/audio/python -p 'test_*.py'` — 8 tests.
+- `python3 packages/audio/python/discord_native_sidecar.py --probe` — pinned
+  Pycord, DAVE receive and libopus ready; this is not live recording acceptance.
+- `python3 scripts/benchmarks/mix-throughput.py` — equal sample hashes.
+- `pnpm audit --audit-level low` and `pnpm release:check` — results in evidence.
+- `node /tmp/resound-hardening/cli-smoke.mjs` — synthetic CLI workflow smoke.
+- `git diff --check` — clean.
+
+During implementation, one missing import and one generated syntax error failed
+local verification and were corrected before the final run. No test was disabled
+or weakened. The benchmark was rerun without the verification build competing
+for CPU; only that isolated sample is used above. Live deployment acceptance is
+the only unperformed requested verification category. Historical SignalBox H13
+items above are not new findings; no duplicate capture or automatic disposition
+was created.

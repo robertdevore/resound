@@ -207,3 +207,54 @@ complete recording into memory. `python3 -m unittest discover -s packages/audio/
 -p 'test_*.py'` runs offline sample-equivalence and bounded-memory checks without
 Discord dependencies. `python3 scripts/benchmarks/wav-memory.py` compares the
 original conversion with the current implementation and verifies identical bytes.
+
+### Resource bounds and diagnostics
+
+Local Whisper runs have a 30-minute deadline per track. Set
+`RESOUND_WHISPER_TIMEOUT_MS` (or `LocalWhisperOptions.timeoutMs`) for larger models
+or long recordings. Binary preflight is limited to 30 seconds. Remote uploads
+use a file-backed Blob, one track at a time, with a 10-minute deadline including
+response consumption; configure `RESOUND_HTTP_TIMEOUT_MS` or the transcriber's
+`timeoutMs` option. Deadline values must be positive integer milliseconds.
+No automatic retry occurs after a timeout: the remote server may have processed
+the request already.
+
+Strata/TotalRecall commands default to 60 seconds; webhook requests default to
+30 seconds. `RESOUND_SINK_TIMEOUT_MS` or the sink's `timeoutMs` option overrides
+these limits. Unused webhook response bodies are cancelled. Child commands run
+without a shell; on POSIX their process group is terminated on deadline.
+
+Subprocess output streams to private `resound-command-*` directories under the
+OS temporary directory. Error previews contain at most 8 KiB per stream and link
+to retained full logs when larger. Successful small command logs are removed.
+Large provider error responses use private `resound-http-*` artifacts. These logs
+can contain transcript text and provider details; retain/share them as private
+meeting evidence and remove them when no longer needed. Failed command logs and
+large diagnostic artifacts are retained until operator/OS temporary-file cleanup;
+there is no automatic retention policy. ffmpeg recording diagnostics are written
+beside the WAV as `.stderr.log`. Requesting stop has a 15-second deadline
+(`stopTimeoutMs` for the recording APIs); forced termination is an error.
+
+### Discord-native timeline and finalization
+
+The pinned Pycord receiver delivers each SSRC's independent RTP timestamp without
+cross-speaker normalization. Resound anchors each speaker's first decoded packet
+to the shared receiver monotonic clock and uses unsigned 32-bit RTP deltas within
+that stream. This gives receive-time alignment, not sender-clock synchronization;
+network latency and decode jitter still affect the first-packet anchor. Silence,
+wraparound and packet overlap are handled explicitly. SSRC changes or timestamp
+jumps inconsistent with elapsed receive time are realigned with a warning.
+Mixed audio includes each speaker's session offset; speaker WAVs retain relative
+samples and their existing `startSeconds` metadata.
+
+Finalization runs off the Discord event loop. Increasing processed-byte receipts
+refresh `RESOUND_SIDECAR_STOP_TIMEOUT_MS` (default 15 seconds), now an **idle**
+finalization deadline. Work that stalls still fails. Progress receipts are at
+most once per second and contain no audio or transcript content.
+
+The sidecar checks free disk space once per second, reserving estimated space
+for speaker WAVs, mixed PCM/WAV and a 64 MiB margin. Disk exhaustion or the WAV
+4 GiB format limit fails explicitly and retains raw PCM for recovery. This is a
+best-effort reserve, not a filesystem quota: concurrent applications can consume
+the free space after a check. Production deployments should use volume quotas
+and monitor retention. No old recordings are automatically deleted.

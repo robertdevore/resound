@@ -1,0 +1,18 @@
+{
+  "speakers": 8,
+  "duration_seconds": 10,
+  "results": [
+    {
+      "implementation": "baseline",
+      "seconds": [3.155990778999694, 3.135882018999837, 3.2564777709994814],
+      "median_seconds": 3.155990778999694,
+      "sha256": "f75fa8647e80b0fae80fc0bcb20dc5b0a8da2df7322cd003fa2a2bfed2f10213"
+    },
+    {
+      "implementation": "current",
+      "seconds": [3.703479838994099, 3.084773700000369, 3.0211097080027685],
+      "median_seconds": 3.084773700000369,
+      "sha256": "f75fa8647e80b0fae80fc0bcb20dc5b0a8da2df7322cd003fa2a2bfed2f10213"
+    }
+  ]
+}
