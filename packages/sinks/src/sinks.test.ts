@@ -103,3 +103,19 @@ it("preserves manifest-relative nested paths when copying a session", async () =
     fs.rmSync(session.dir, { recursive: true, force: true });
   }
 });
+
+it("cancels unused webhook response bodies and supplies a deadline", async () => {
+  const cancel = vi.fn();
+  const fetchImpl = vi.fn(async (_url, init) => {
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+    return { ok: true, status: 200, body: { cancel } } as unknown as Response;
+  }) as unknown as typeof fetch;
+  expect(
+    (
+      await new WebhookSink({ url: "https://example.test", fetchImpl }).send(
+        tempSession(),
+      )
+    ).ok,
+  ).toBe(true);
+  expect(cancel).toHaveBeenCalledOnce();
+});

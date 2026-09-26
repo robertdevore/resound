@@ -1,6 +1,10 @@
-import { spawn } from "node:child_process";
 import fs from "node:fs";
-import { sessionPaths, type TranscriptSession } from "@resound/core";
+import {
+  runCommand,
+  deadlineMs,
+  sessionPaths,
+  type TranscriptSession,
+} from "@resound/core";
 import type { Sink, SinkResult } from "./types.js";
 
 export interface StrataOptions {
@@ -10,6 +14,8 @@ export interface StrataOptions {
    */
   command?: string;
   env?: NodeJS.ProcessEnv;
+  /** Default: RESOUND_SINK_TIMEOUT_MS or 60 seconds. */
+  timeoutMs?: number;
   /** Injectable runner for testing. Returns the process exit code. */
   run?: (
     cmd: string,
@@ -46,7 +52,13 @@ export class StrataSink implements Sink {
     const parts = template.split(/\s+/).filter(Boolean);
     const cmd = parts[0]!;
     const args = [...parts.slice(1), mdPath];
-    const runner = this.options.run ?? defaultRunner;
+    const timeout = deadlineMs(
+      this.options.timeoutMs ?? env.RESOUND_SINK_TIMEOUT_MS,
+      60_000,
+    );
+    const runner =
+      this.options.run ??
+      ((cmd: string, args: string[]) => runCommand(cmd, args, timeout));
 
     try {
       const { code, stderr } = await runner(cmd, args);
@@ -73,17 +85,4 @@ export class StrataSink implements Sink {
       };
     }
   }
-}
-
-function defaultRunner(
-  cmd: string,
-  args: string[],
-): Promise<{ code: number; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
-    let stderr = "";
-    child.stderr?.on("data", (d) => (stderr += String(d)));
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ code: code ?? 1, stderr }));
-  });
 }
