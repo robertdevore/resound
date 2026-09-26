@@ -20,6 +20,7 @@ export interface PycordDiscordRecorderOptions {
   pythonPath?: string;
   pythonPathEntries?: string[];
   startupTimeoutMs?: number;
+  /** Idle finalization deadline; actual byte progress refreshes it. */
   stopTimeoutMs?: number;
 }
 
@@ -40,7 +41,11 @@ interface SidecarErrorEvent {
   message: string;
 }
 
-type SidecarEvent = SidecarReadyEvent | SidecarStoppedEvent | SidecarErrorEvent;
+type SidecarEvent =
+  | SidecarReadyEvent
+  | SidecarStoppedEvent
+  | SidecarErrorEvent
+  | { event: "progress"; bytesProcessed: number };
 
 function scriptPath(): string {
   return path.resolve(
@@ -110,6 +115,8 @@ export class PycordDiscordRecorder implements Recorder {
   private stderrTail = "";
   private stderrLogPath?: string;
   private terminalError?: Error;
+  private progressTimer?: NodeJS.Timeout;
+  private progressBytes = 0;
   private pending: Array<{
     predicate: (event: SidecarEvent) => boolean;
     resolve: (event: SidecarEvent) => void;
@@ -124,6 +131,8 @@ export class PycordDiscordRecorder implements Recorder {
       process.env.RESOUND_DISCORD_PYTHON ??
       "python3";
     const probe = spawnSync(python, [scriptPath(), "--probe"], {
+      timeout: 30_000,
+      maxBuffer: 1024 * 1024,
       encoding: "utf8",
       env: pythonEnv(this.options.pythonPathEntries),
     });
@@ -304,6 +313,7 @@ export class PycordDiscordRecorder implements Recorder {
       );
     }
     this.status = "stopping";
+    this.progressBytes = 0;
     const stoppedPromise = this.waitForEvent(
       (event): event is SidecarStoppedEvent => event.event === "stopped",
     );
@@ -324,6 +334,7 @@ export class PycordDiscordRecorder implements Recorder {
               ),
             timeoutMs,
           );
+          this.progressTimer = timer;
         }),
       ]);
       this.stopped = stopped;
@@ -336,6 +347,7 @@ export class PycordDiscordRecorder implements Recorder {
       throw error;
     } finally {
       if (timer) clearTimeout(timer);
+      this.progressTimer = undefined;
     }
   }
 
@@ -366,6 +378,16 @@ export class PycordDiscordRecorder implements Recorder {
   private handleLine(line: string): void {
     const event = safeJsonParse(line.trim());
     if (!event) return;
+    if (event.event === "progress") {
+      if (
+        Number.isSafeInteger(event.bytesProcessed) &&
+        event.bytesProcessed > this.progressBytes
+      ) {
+        this.progressBytes = event.bytesProcessed;
+        this.progressTimer?.refresh();
+      }
+      return;
+    }
     if (event.event === "error") {
       this.status = "failed";
       this.terminalError = new Error(event.message);

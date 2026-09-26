@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import { deadlineMs, diagnosticPreview } from "@resound/core";
 import { spawn, spawnSync } from "node:child_process";
 
 /**
@@ -22,6 +24,8 @@ export interface RecordOptions {
   durationSec?: number;
   ffmpegPath?: string;
   sampleRate?: number;
+  /** Deadline after requesting stop; default 15 seconds. */
+  stopTimeoutMs?: number;
   /** Escape hatch for tests: replace the avfoundation inputs entirely. */
   rawInputArgs?: string[];
 }
@@ -93,12 +97,20 @@ export function isInteractiveStopInput(input: string): boolean {
 
 /** Start an ffmpeg capture. Call stop() (or rely on durationSec) to finish. */
 export function recordAudio(opts: RecordOptions): Recording {
+  const stopTimeout = deadlineMs(opts.stopTimeoutMs, 15_000);
   const ffmpeg = opts.ffmpegPath ?? "ffmpeg";
   const args = buildFfmpegArgs(opts);
-  const child = spawn(ffmpeg, args, { stdio: ["pipe", "ignore", "pipe"] });
+  const stderrPath = opts.outFile + ".stderr.log";
+  const stderrFd = fs.openSync(stderrPath, "w", 0o600);
+  let child;
+  try {
+    child = spawn(ffmpeg, args, { stdio: ["pipe", "ignore", stderrFd] });
+  } finally {
+    fs.closeSync(stderrFd);
+  }
 
-  let stderr = "";
-  child.stderr?.on("data", (d) => (stderr += String(d)));
+  let stopTimer: ReturnType<typeof setTimeout> | undefined;
+  child.stdin?.on("error", () => child.kill("SIGINT"));
 
   const done = new Promise<string>((resolve, reject) => {
     child.on("error", (err) => {
@@ -110,17 +122,23 @@ export function recordAudio(opts: RecordOptions): Recording {
       }
     });
     child.on("close", (code, signal) => {
+      clearTimeout(stopTimer);
       // ffmpeg returns 255 for a clean stdin 'q' stop. In a terminal, Ctrl+C can
       // also reach the ffmpeg process directly as SIGINT before stdin 'q' lands.
       if (isCleanFfmpegClose(code, signal)) resolve(opts.outFile);
       else
         reject(
-          new Error(`ffmpeg exited ${code ?? signal}: ${stderr.slice(0, 500)}`),
+          new Error(
+            `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
+          ),
         );
     });
   });
 
   const stop = () => {
+    if (child.exitCode !== null || child.signalCode !== null || stopTimer)
+      return;
+    stopTimer = setTimeout(() => child.kill("SIGKILL"), stopTimeout);
     try {
       child.stdin?.write("q");
       child.stdin?.end();
@@ -142,8 +160,9 @@ export function listAudioDevices(ffmpegPath = "ffmpeg"): AudioDevice[] {
   const res = spawnSync(
     ffmpegPath,
     ["-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 30_000 },
   );
+  if (res.error) throw res.error;
   const text = `${res.stdout ?? ""}${res.stderr ?? ""}`;
   const devices: AudioDevice[] = [];
   let inAudio = false;
