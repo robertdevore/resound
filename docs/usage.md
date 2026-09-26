@@ -243,3 +243,10 @@ TotalRecall is not required in V1. The folder remains self-describing without it
 See [providers.md](providers.md). The short version: set `RESOUND_TRANSCRIBER`
 and the matching API key. With nothing set, Resound uses the deterministic mock
 provider.
+
+### Piping and copying artifacts
+
+`resound sink stdout <session>` writes only the Markdown artifact to stdout;
+its success/failure receipt goes to stderr. Redirect stdout to preserve an exact
+copy. The filesystem sink retains manifest-relative subdirectories, including
+custom output paths, so copied sessions remain loadable and valid.

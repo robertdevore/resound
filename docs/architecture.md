@@ -81,3 +81,21 @@ configured on the VPS.
   order, then the apps.
 - Vitest resolves `@resound/*` to package **source** (see `vitest.config.ts`),
   so tests run without a prior build.
+
+## Storage and lifecycle guarantees
+
+Session creation reserves a fresh directory atomically. Normal folder and session
+IDs retain their existing format; an occupied same-millisecond name receives a
+UUID suffix rather than overwriting another session. Restart recovery selects
+sessions by `started_at`, with the path as a deterministic tie-breaker.
+
+Manifest and canonical export replacements are atomic per file, use private
+permissions, and clean their unique staging directories on ordinary failures.
+The six exports are not a filesystem transaction, and these writes do not promise
+power-loss durability (`fsync`). A failed export remains retryable.
+
+Guild control/export operations reject overlapping requests before authorization
+or recorder selection can become stale. Status and consent remain available.
+The bot publishes its recording notice before starting capture; failure to publish
+prevents capture. The notice is an announcement policy, not capture-time opt-in
+filtering of individual participants.

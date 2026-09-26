@@ -1,0 +1,65 @@
+
+> resound@1.0.1 verify /Users/robertdevore/2026/resound
+> pnpm format:check && pnpm typecheck && pnpm test
+
+
+> resound@1.0.1 format:check /Users/robertdevore/2026/resound
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> resound@1.0.1 typecheck /Users/robertdevore/2026/resound
+> pnpm build && pnpm -r typecheck
+
+
+> resound@1.0.1 build /Users/robertdevore/2026/resound
+> pnpm -r build
+
+Scope: 8 of 9 workspace projects
+packages/core build$ tsc -p tsconfig.json
+packages/core build: Done
+packages/audio build$ tsc -p tsconfig.json
+packages/exporters build$ tsc -p tsconfig.json
+packages/kujo build$ tsc -p tsconfig.json
+packages/sinks build$ tsc -p tsconfig.json
+packages/kujo build: Done
+packages/transcribers build$ tsc -p tsconfig.json
+packages/sinks build: Done
+packages/exporters build: Done
+packages/audio build: Done
+packages/transcribers build: Done
+apps/bot build$ tsc -p tsconfig.json
+apps/cli build$ tsc -p tsconfig.json
+apps/cli build: Done
+apps/bot build: Done
+Scope: 8 of 9 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/audio typecheck$ tsc -p tsconfig.json --noEmit
+packages/exporters typecheck$ tsc -p tsconfig.json --noEmit
+packages/kujo typecheck$ tsc -p tsconfig.json --noEmit
+packages/sinks typecheck$ tsc -p tsconfig.json --noEmit
+packages/exporters typecheck: Done
+packages/transcribers typecheck$ tsc -p tsconfig.json --noEmit
+packages/audio typecheck: Done
+packages/kujo typecheck: Done
+packages/sinks typecheck: Done
+packages/transcribers typecheck: Done
+apps/cli typecheck$ tsc -p tsconfig.json --noEmit
+apps/bot typecheck$ tsc -p tsconfig.json --noEmit
+apps/cli typecheck: Done
+apps/bot typecheck: Done
+
+> resound@1.0.1 test /Users/robertdevore/2026/resound
+> vitest run
+
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+
+ Test Files  12 passed (12)
+      Tests  102 passed (102)
+   Start at  01:21:49
+   Duration  7.60s (transform 16.57s, setup 0ms, import 23.67s, tests 7.23s, environment 6ms)
+
