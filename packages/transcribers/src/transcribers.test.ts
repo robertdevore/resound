@@ -250,3 +250,75 @@ describe("mock transcriber", () => {
     expect(segments.every((s) => /\d\d:\d\d:\d\d/.test(s.ts))).toBe(true);
   });
 });
+
+describe("remote track resource and failure boundaries", () => {
+  it("uploads sequentially and stops after a provider failure", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-remote-"));
+    const audio = path.join(dir, "a.wav");
+    fs.writeFileSync(audio, "audio");
+    let inFlight = 0;
+    let peak = 0;
+    const remote = vi.fn(async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      inFlight--;
+      return new Response(
+        JSON.stringify({ segments: [{ start: 0, end: 1, text: "hello" }] }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", remote);
+    try {
+      const input = {
+        audioTracks: Array.from({ length: 4 }, (_, i) => ({
+          path: audio,
+          userId: String(i),
+          username: String(i),
+          startSeconds: i,
+          durationSeconds: 1,
+        })),
+      };
+      const transcriber = new OpenAICompatibleTranscriber({
+        apiKey: "test",
+        baseUrl: "https://provider.test",
+      });
+      const segments = await transcriber.transcribe(input);
+      expect(segments.map((segment) => segment.user_id)).toEqual([
+        "0",
+        "1",
+        "2",
+        "3",
+      ]);
+      expect(peak).toBe(1);
+      remote.mockClear();
+      remote.mockImplementation(
+        async () => new Response("provider failed", { status: 500 }),
+      );
+      await expect(transcriber.transcribe(input)).rejects.toThrow(
+        /500.*provider failed/,
+      );
+      expect(remote).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects missing speaker tracks instead of silently omitting their speech", async () => {
+    const transcriber = new OpenAICompatibleTranscriber({ apiKey: "test" });
+    await expect(
+      transcriber.transcribe({
+        audioTracks: [
+          {
+            path: "/nonexistent-resound-track.wav",
+            userId: "1",
+            username: "A",
+            startSeconds: 0,
+            durationSeconds: 1,
+          },
+        ],
+      }),
+    ).rejects.toThrow(/Audio track is missing/);
+  });
+});

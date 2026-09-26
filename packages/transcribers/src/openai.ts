@@ -120,8 +120,10 @@ export class OpenAICompatibleTranscriber implements Transcriber {
     }
 
     if (tracks.length > 0) {
-      const perTrack = await Promise.all(
-        tracks.map(async (track) =>
+      // Keep one upload resident at a time and stop scheduling after a failure.
+      const perTrack: TranscriptSegment[][] = [];
+      for (const track of tracks) {
+        perTrack.push(
           mapRawSegmentsToSpeakerSegments(
             await this.transcribeRaw({ ...input, audioPath: track.path }),
             {
@@ -130,8 +132,8 @@ export class OpenAICompatibleTranscriber implements Transcriber {
               startSeconds: track.startSeconds,
             },
           ),
-        ),
-      );
+        );
+      }
       return mergeTranscriptSegments(perTrack.flat());
     }
 

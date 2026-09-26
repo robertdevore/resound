@@ -82,3 +82,24 @@ describe("webhook sink", () => {
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 });
+
+it("preserves manifest-relative nested paths when copying a session", async () => {
+  const { FilesystemSink } = await import("./filesystem.js");
+  const { writeSessionOutputs } = await import("../../exporters/src/write.js");
+  const { loadSession, validateSession } = await import("@resound/core");
+  const session = tempSession();
+  const dest = fs.mkdtempSync(path.join(os.tmpdir(), "resound-sink-copy-"));
+  try {
+    session.manifest.outputs.jsonl = "canonical/transcript.jsonl";
+    session.manifest.outputs.markdown = "rendered/transcript.md";
+    writeSessionOutputs(session);
+    expect((await new FilesystemSink(dest).send(session)).ok).toBe(true);
+    const copy = path.join(dest, path.basename(session.dir));
+    expect(validateSession(copy).valid).toBe(true);
+    expect(loadSession(copy).manifest).toEqual(session.manifest);
+    expect(fs.existsSync(path.join(copy, "rendered/transcript.md"))).toBe(true);
+  } finally {
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.rmSync(session.dir, { recursive: true, force: true });
+  }
+});

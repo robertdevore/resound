@@ -14,7 +14,7 @@ export class FilesystemSink implements Sink {
   async send(session: TranscriptSession): Promise<SinkResult> {
     const paths = sessionPaths(session.dir, session.manifest);
     const dest = path.join(this.destDir, path.basename(session.dir));
-    fs.mkdirSync(dest, { recursive: true });
+    fs.mkdirSync(dest, { recursive: true, mode: 0o700 });
     const files = [
       paths.manifest,
       paths.jsonl,
@@ -27,7 +27,10 @@ export class FilesystemSink implements Sink {
     let copied = 0;
     for (const f of files) {
       if (fs.existsSync(f)) {
-        fs.copyFileSync(f, path.join(dest, path.basename(f)));
+        const target = path.join(dest, path.relative(session.dir, f));
+        fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+        fs.copyFileSync(f, target);
+        fs.chmodSync(target, 0o600);
         copied++;
       }
     }

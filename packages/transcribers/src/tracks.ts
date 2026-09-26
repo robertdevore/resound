@@ -20,9 +20,13 @@ interface EffectiveTrack extends TranscriptionTrack {
 export function selectEffectiveTracks(
   input: TranscriptionInput,
 ): EffectiveTrack[] {
-  const tracks = (input.audioTracks ?? [])
-    .filter((track) => track.userId !== "mixed")
-    .filter((track) => fs.existsSync(track.path));
+  const tracks = (input.audioTracks ?? []).filter(
+    (track) => track.userId !== "mixed",
+  );
+  for (const track of tracks) {
+    if (!fs.existsSync(track.path))
+      throw new Error(`Audio track is missing: ${track.path}`);
+  }
   if (tracks.length === 0) return [];
   const participants = new Map(
     (input.participants ?? []).map((participant) => [

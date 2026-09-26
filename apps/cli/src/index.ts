@@ -17,6 +17,7 @@ import {
   resolveSession,
   sessionPaths,
   validateSession,
+  writePrivateFile,
 } from "@resound/core";
 import {
   buildActionItemsMarkdown,
@@ -336,7 +337,7 @@ program
     const dir = mustResolve(ref);
     const { manifest, segments } = loadSession(dir);
     const out = sessionPaths(dir, manifest).summary;
-    fs.writeFileSync(out, buildSummaryMarkdown(manifest, segments), "utf8");
+    writePrivateFile(out, buildSummaryMarkdown(manifest, segments));
     console.log(`Wrote ${out}`);
   });
 
@@ -348,7 +349,7 @@ program
     const { manifest, segments } = loadSession(dir);
     const items = extractActionItems(segments);
     const out = sessionPaths(dir, manifest).actionItems;
-    fs.writeFileSync(out, buildActionItemsMarkdown(items), "utf8");
+    writePrivateFile(out, buildActionItemsMarkdown(items));
     console.log(`Wrote ${out} (${items.length} item(s))`);
   });
 
@@ -382,7 +383,8 @@ async function runSink(s: Sink, ref: string): Promise<void> {
   const dir = mustResolve(ref);
   const session = loadSession(dir);
   const result = await s.send(session);
-  console.log(
+  const receipt = s.name === "stdout" ? console.error : console.log;
+  receipt(
     `[${result.ok ? "ok" : result.skipped ? "skip" : "fail"}] ${result.sink}: ${result.detail}`,
   );
   process.exit(result.ok ? 0 : 1);
