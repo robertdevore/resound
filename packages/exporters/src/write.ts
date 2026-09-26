@@ -1,9 +1,9 @@
 import fs from "node:fs";
-import path from "node:path";
 import {
   sessionPaths,
   toJsonl,
   writeManifest,
+  writePrivateFile,
   type TranscriptSession,
 } from "@resound/core";
 import { toMarkdown } from "./markdown.js";
@@ -47,9 +47,7 @@ export function writeSessionOutputs(
   ];
 
   for (const [p, content] of files) {
-    fs.mkdirSync(path.dirname(p), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(p, content, { encoding: "utf8", mode: 0o600 });
-    fs.chmodSync(p, 0o600);
+    writePrivateFile(p, content);
     written.push(p);
   }
 

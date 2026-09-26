@@ -183,10 +183,16 @@ export function validateSession(dir: string): ValidationResult {
 
   // The canonical JSONL, if present, must parse.
   if (fs.existsSync(paths.jsonl)) {
-    const { errors: jsonlErrors } = parseJsonl(
-      fs.readFileSync(paths.jsonl, "utf8"),
-    );
-    errors.push(...jsonlErrors.map((e) => `transcript.jsonl: ${e}`));
+    try {
+      const { errors: jsonlErrors } = parseJsonl(
+        fs.readFileSync(paths.jsonl, "utf8"),
+      );
+      errors.push(...jsonlErrors.map((e) => `transcript.jsonl: ${e}`));
+    } catch (error) {
+      errors.push(
+        `Cannot read canonical transcript.jsonl: ${(error as Error).message}`,
+      );
+    }
   } else {
     errors.push("canonical transcript.jsonl is missing");
   }

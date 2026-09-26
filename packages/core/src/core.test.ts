@@ -283,3 +283,57 @@ describe("session storage", () => {
     expect(result.errors).toContain("outputs must be an object");
   });
 });
+
+describe("atomic private storage", () => {
+  it("reserves separate paths and identities for simultaneous same-title sessions", async () => {
+    const { reserveSessionDirectory } = await import("./store.js");
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "resound-reserve-"));
+    try {
+      const first = createManifest({ title: "same", startedAt: at });
+      const second = createManifest({ title: "same", startedAt: at });
+      const base = path.join(root, "session");
+      expect(reserveSessionDirectory(base, first)).toBe(base);
+      writeManifest(base, first);
+      const other = reserveSessionDirectory(base, second);
+      expect(other).not.toBe(base);
+      expect(second.session_id).not.toBe(first.session_id);
+      expect(loadSession(base).manifest).toEqual(first);
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves the previous artifact and cleans staging files on failed replacement", async () => {
+    const { vi } = await import("vitest");
+    const { writePrivateFile } = await import("./store.js");
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "resound-atomic-"));
+    const file = path.join(root, "artifact");
+    fs.writeFileSync(file, "old");
+    const rename = vi.spyOn(fs, "renameSync").mockImplementation(() => {
+      throw new Error("disk error");
+    });
+    try {
+      expect(() => writePrivateFile(file, "new")).toThrow("disk error");
+      expect(fs.readFileSync(file, "utf8")).toBe("old");
+      expect(fs.readdirSync(root)).toEqual(["artifact"]);
+    } finally {
+      rename.mockRestore();
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+it("returns validation errors for unreadable canonical artifacts", async () => {
+  const { validateSession } = await import("./validation.js");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-invalid-"));
+  try {
+    const manifest = createManifest({ title: "invalid" });
+    writeManifest(dir, manifest);
+    fs.mkdirSync(path.join(dir, "transcript.jsonl"));
+    expect(validateSession(dir).errors.join(" ")).toContain(
+      "Cannot read canonical transcript.jsonl",
+    );
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

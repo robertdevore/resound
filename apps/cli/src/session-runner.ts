@@ -6,6 +6,7 @@ import {
   createManifest,
   outputRoot,
   recordConsentEvent,
+  reserveSessionDirectory,
   sessionPaths,
   type TranscriptSession,
 } from "@resound/core";
@@ -63,9 +64,12 @@ export async function createMockSession(
     });
   }
 
-  const dir = path.join(
-    outputRoot(env),
-    buildSessionFolder({ title: options.title, source: "mock", at }),
+  const dir = reserveSessionDirectory(
+    path.join(
+      outputRoot(env),
+      buildSessionFolder({ title: options.title, source: "mock", at }),
+    ),
+    manifest,
   );
 
   const recorder = new MockRecorder({ participants });
@@ -147,9 +151,12 @@ export async function createFileSession(
     });
   }
 
-  const dir = path.join(
-    outputRoot(env),
-    buildSessionFolder({ title: options.title, source: "file", at }),
+  const dir = reserveSessionDirectory(
+    path.join(
+      outputRoot(env),
+      buildSessionFolder({ title: options.title, source: "file", at }),
+    ),
+    manifest,
   );
   // Reference the source audio inside the session for provenance.
   const paths = sessionPaths(dir);

@@ -54,7 +54,16 @@ export function checkExportCompleteness(dir: string): CheckResult {
       messages: ["manifest.json missing or unreadable"],
     };
   }
-  const paths = sessionPaths(dir, manifest);
+  let paths: ReturnType<typeof sessionPaths>;
+  try {
+    paths = sessionPaths(dir, manifest);
+  } catch (error) {
+    return {
+      check: "export-completeness",
+      pass: false,
+      messages: [(error as Error).message],
+    };
+  }
   const required: [string, string][] = [
     ["transcript.jsonl", paths.jsonl],
     ["transcript.md", paths.markdown],
