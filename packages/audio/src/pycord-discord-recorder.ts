@@ -250,7 +250,8 @@ export class PycordDiscordRecorder implements Recorder {
       this.status = "failed";
       this.failPending(err);
     });
-    child.on("exit", (code, signal) => {
+    // close follows stdout drainage; exit can precede the final stopped event.
+    child.on("close", (code, signal) => {
       if (this.status !== "idle" && this.status !== "failed") {
         const error = new Error(
           `Pycord sidecar exited unexpectedly (${code ?? signal}). ${this.stderrTail.slice(0, 500)}${this.stderrLogPath ? ` See ${this.stderrLogPath}.` : ""}`,

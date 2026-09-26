@@ -113,3 +113,7 @@ Desktop.ini
 *.swo
 *~
 .history/
+
+# Python test/sidecar bytecode
+__pycache__/
+*.pyc

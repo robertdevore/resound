@@ -210,7 +210,10 @@ class TimelineSinkBase:
             out.setnchannels(self.channels)
             out.setsampwidth(self.sample_width)
             out.setframerate(self.sample_rate)
-            out.writeframes(source.read())
+            # Bound working memory independently of meeting length. wave patches
+            # the final RIFF sizes on close; samples and format remain identical.
+            while chunk := source.read(1024 * 1024):
+                out.writeframesraw(chunk)
 
     def _mix_tracks(self, mixed_pcm: Path, pcm_paths: list[Path], longest_samples: int) -> None:
         frame_bytes = self.channels * self.sample_width
