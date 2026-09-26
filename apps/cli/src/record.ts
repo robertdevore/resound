@@ -122,16 +122,20 @@ export function recordAudio(opts: RecordOptions): Recording {
       }
     });
     child.on("close", (code, signal) => {
-      clearTimeout(stopTimer);
-      // ffmpeg returns 255 for a clean stdin 'q' stop. In a terminal, Ctrl+C can
-      // also reach the ffmpeg process directly as SIGINT before stdin 'q' lands.
-      if (isCleanFfmpegClose(code, signal)) resolve(opts.outFile);
-      else
-        reject(
-          new Error(
-            `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
-          ),
-        );
+      try {
+        clearTimeout(stopTimer);
+        // ffmpeg returns 255 for a clean stdin 'q' stop. In a terminal, Ctrl+C can
+        // also reach the ffmpeg process directly as SIGINT before stdin 'q' lands.
+        if (isCleanFfmpegClose(code, signal)) resolve(opts.outFile);
+        else
+          reject(
+            new Error(
+              `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
+            ),
+          );
+      } catch (error) {
+        reject(error);
+      }
     });
   });
 
