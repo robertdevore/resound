@@ -346,3 +346,78 @@ describe("SessionManager (mock mode)", () => {
     expect(fs.existsSync(restored.currentPaths()!.markdown)).toBe(true);
   });
 });
+
+describe("session lifecycle integrity", () => {
+  it("rejects overlapping stops before the recorder is finalized twice", async () => {
+    let release!: () => void;
+    let calls = 0;
+    const recorder = new (await import("@resound/audio")).MockRecorder();
+    recorder.stop = async () => {
+      calls++;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return [];
+    };
+    const mgr = new SessionManager(envFor(), () => recorder);
+    await mgr.start("Stop once", {
+      guildId: "g",
+      channelId: "c",
+      startedBy: { id: "1", username: "a" },
+    });
+    const first = mgr.stop();
+    await expect(mgr.stop()).rejects.toThrow(/ready to stop/);
+    expect(calls).toBe(1);
+    release();
+    await first;
+    expect(mgr.status()).toContain("State: completed");
+  });
+
+  it("does not let a pending pause overwrite a stop transition", async () => {
+    let release!: () => void;
+    const recorder: Recorder = new (
+      await import("@resound/audio")
+    ).MockRecorder();
+    recorder.capabilities.pauseResume = true;
+    recorder.pause = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    const mgr = new SessionManager(envFor(), () => recorder);
+    await mgr.start("Pause", {
+      guildId: "g",
+      channelId: "c",
+      startedBy: { id: "1", username: "a" },
+    });
+    const pausing = mgr.pause();
+    await expect(mgr.stop()).rejects.toThrow(/control operation/);
+    release();
+    await pausing;
+    await mgr.stop();
+    expect(mgr.status()).toContain("State: completed");
+  });
+
+  it("restores by started_at instead of alphabetical title", async () => {
+    const { createManifest, writeManifest } = await import("@resound/core");
+    const env = envFor();
+    for (const [title, date, owner] of [
+      ["z-old", "2026-09-25T10:00:00Z", "old"],
+      ["a-new", "2026-09-25T11:00:00Z", "new"],
+    ]) {
+      const manifest = createManifest({
+        title: title!,
+        guildId: "g",
+        startedAt: new Date(date!),
+        startedBy: { id: owner!, username: owner! },
+        status: "completed",
+      });
+      writeManifest(
+        path.join(env.RESOUND_OUTPUT_DIR!, "2026-09-25", title!),
+        manifest,
+      );
+    }
+    const mgr = new SessionManager(env);
+    expect(mgr.restoreLatestForGuild("g")).toBe(true);
+    expect(mgr.ownerId).toBe("new");
+  });
+});

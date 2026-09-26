@@ -31,6 +31,7 @@ import {
 import { getTranscriber } from "@resound/transcribers";
 import type { TranscriptionProgress } from "@resound/transcribers";
 import { SessionManager } from "./session-manager.js";
+import { GuildOperations } from "./operations.js";
 import {
   authorizeSubcommand,
   transcriptDelivery,
@@ -64,6 +65,7 @@ const connections = new Map<string, { destroy(): void }>();
 
 // One active session per guild.
 const managers = new Map<string, SessionManager>();
+const operations = new GuildOperations();
 function managerFor(guildId: string): SessionManager {
   let m = managers.get(guildId);
   if (!m) {
@@ -376,7 +378,21 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
   const user = { id: i.user.id, username: i.user.username };
   const subject = operatorSubject(i);
 
+  let release: (() => void) | undefined;
   try {
+    if (
+      [
+        "doctor",
+        "start",
+        "stop",
+        "pause",
+        "resume",
+        "recover",
+        "export",
+      ].includes(sub)
+    ) {
+      release = operations.acquire(guildId);
+    }
     const authorization = authorizeSubcommand(sub, subject, mgr.ownerId);
     if (authorization.reason === "operator-required") {
       await safePrivateError(
@@ -405,6 +421,10 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
         await safeReply(i, "```\n" + (await doctorSummary(i)) + "\n```", true);
         return;
       case "start": {
+        if (mgr.active)
+          throw new Error(
+            "A session is already in progress. Use /resound stop first.",
+          );
         const title = i.options.getString("title")?.trim() || "Discord Meeting";
         const selection = await selectRecorder(i);
         const member = i.member as GuildMember;
@@ -417,6 +437,10 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
                 username: voiceMember.user.username,
               }))
           : [user];
+        // A failed public announcement must prevent recording from starting.
+        await i.editReply(
+          "🔴 Recording and transcription are about to begin. Participants should leave the voice channel if they do not consent.",
+        );
         const { announce } = await mgr.start(
           title,
           {
@@ -600,6 +624,8 @@ async function handle(i: ChatInputCommandInteraction): Promise<void> {
     }
   } catch (err) {
     await safePrivateError(i, `⚠️ ${(err as Error).message}`);
+  } finally {
+    release?.();
   }
 }
 

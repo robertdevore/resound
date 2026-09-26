@@ -8,6 +8,7 @@ import {
   outputRoot,
   readManifest,
   recordConsentEvent,
+  reserveSessionDirectory,
   removeParticipant,
   sessionPaths,
   writeManifest,
@@ -89,6 +90,7 @@ export class SessionManager {
   private dir?: string;
   private state: SessionState = "idle";
   private recorder?: Recorder;
+  private controlPending = false;
   private lastCaptureReport: string[] = [];
   private readonly mode: "mock" | "discord-native" | "local-capture" | "auto";
   private readonly makeTranscriber: () => Transcriber;
@@ -150,11 +152,23 @@ export class SessionManager {
 
   /** Restore the newest durable session for a guild, reconciling interrupted work. */
   restoreLatestForGuild(guildId: string): boolean {
-    const candidates = listSessions(outputRoot(this.env)).reverse();
-    for (const candidate of candidates) {
+    if (this.active)
+      throw new Error("Cannot restore while a session is active.");
+    const candidates = listSessions(outputRoot(this.env))
+      .flatMap((dir) => {
+        try {
+          const manifest = normalizeStoredManifest(readManifest(dir));
+          const started = Date.parse(manifest.started_at);
+          return manifest.guild_id === guildId && Number.isFinite(started)
+            ? [{ dir, manifest, started }]
+            : [];
+        } catch {
+          return [];
+        }
+      })
+      .sort((a, b) => b.started - a.started || b.dir.localeCompare(a.dir));
+    for (const { dir: candidate, manifest } of candidates) {
       try {
-        const manifest = normalizeStoredManifest(readManifest(candidate));
-        if (manifest.guild_id !== guildId) continue;
         this.manifest = manifest;
         this.dir = candidate;
         this.lastCaptureReport = [...manifest.audio_health];
@@ -302,9 +316,12 @@ export class SessionManager {
       transcriberProvider: transcriber.provider,
       transcriberModel: transcriber.model,
     });
-    this.dir = path.join(
-      outputRoot(this.env),
-      buildSessionFolder({ title, source: "discord", at }),
+    this.dir = reserveSessionDirectory(
+      path.join(
+        outputRoot(this.env),
+        buildSessionFolder({ title, source: "discord", at }),
+      ),
+      this.manifest,
     );
     this.transition("preflighting", "preflighting");
 
@@ -420,8 +437,15 @@ export class SessionManager {
     if (!this.recorder?.capabilities.pauseResume || !this.recorder.pause) {
       throw new Error("The active recorder does not support pausing.");
     }
-    await this.recorder.pause();
-    this.transition("paused", "recording-degraded");
+    if (this.controlPending)
+      throw new Error("A recorder control operation is in progress.");
+    this.controlPending = true;
+    try {
+      await this.recorder.pause();
+      this.transition("paused", "recording-degraded");
+    } finally {
+      this.controlPending = false;
+    }
     return "⏸️ Recording paused.";
   }
 
@@ -430,8 +454,15 @@ export class SessionManager {
     if (!this.recorder?.capabilities.pauseResume || !this.recorder.resume) {
       throw new Error("The active recorder does not support resuming.");
     }
-    await this.recorder.resume();
-    this.transition("recording", "recording");
+    if (this.controlPending)
+      throw new Error("A recorder control operation is in progress.");
+    this.controlPending = true;
+    try {
+      await this.recorder.resume();
+      this.transition("recording", "recording");
+    } finally {
+      this.controlPending = false;
+    }
     return "▶️ Recording resumed.";
   }
 
@@ -494,8 +525,15 @@ export class SessionManager {
   async stop(
     onProgress?: (progress: TranscriptionProgress) => void,
   ): Promise<TranscriptSession> {
-    if (!this.manifest || !this.dir || !this.recorder)
-      throw new Error("No active session.");
+    if (
+      !this.manifest ||
+      !this.dir ||
+      !this.recorder ||
+      !["recording", "paused"].includes(this.state)
+    )
+      throw new Error("No active session is ready to stop.");
+    if (this.controlPending)
+      throw new Error("A recorder control operation is in progress.");
     const recorder = this.recorder;
     this.transition("audio-finalizing", "audio-finalizing");
     let chunks: AudioChunk[];
