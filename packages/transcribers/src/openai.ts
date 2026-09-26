@@ -1,5 +1,9 @@
 import fs from "node:fs";
-import type { TranscriptSegment } from "@resound/core";
+import {
+  deadlineMs,
+  responseErrorDetail,
+  type TranscriptSegment,
+} from "@resound/core";
 import type {
   Transcriber,
   TranscriptionInput,
@@ -23,6 +27,8 @@ interface VerboseSegment extends RawSegment {
 
 export interface OpenAICompatibleOptions {
   apiKey: string;
+  /** Default: 10 minutes per track, including response consumption. */
+  timeoutMs?: number;
   model?: string;
   /**
    * Base URL of an OpenAI-compatible API, WITHOUT a trailing slash. Defaults to
@@ -57,10 +63,15 @@ export class OpenAICompatibleTranscriber implements Transcriber {
     maxInputSize: "Provider-defined upload limits",
     privacy: "remote-optional",
   };
+  private readonly timeoutMs: number;
   private readonly apiKey: string;
   private readonly baseUrl: string;
 
   constructor(opts: OpenAICompatibleOptions) {
+    this.timeoutMs = deadlineMs(
+      opts.timeoutMs ?? process.env.RESOUND_HTTP_TIMEOUT_MS,
+      600_000,
+    );
     this.apiKey = opts.apiKey;
     this.model = opts.model || "whisper-1";
     this.baseUrl = (opts.baseUrl || "https://api.openai.com/v1").replace(
@@ -154,12 +165,8 @@ export class OpenAICompatibleTranscriber implements Transcriber {
       );
     }
     const form = new FormData();
-    const data = await fs.promises.readFile(audioPath);
-    form.append(
-      "file",
-      new Blob([data]),
-      audioPath.split("/").pop() ?? "audio.wav",
-    );
+    const data = await fs.openAsBlob(audioPath);
+    form.append("file", data, audioPath.split("/").pop() ?? "audio.wav");
     form.append("model", this.model);
     form.append("response_format", "verbose_json");
     form.append("timestamp_granularities[]", "segment");
@@ -167,12 +174,13 @@ export class OpenAICompatibleTranscriber implements Transcriber {
 
     const res = await fetch(this.endpoint, {
       method: "POST",
+      signal: AbortSignal.timeout(this.timeoutMs),
       headers: { Authorization: `Bearer ${this.apiKey}` },
       body: form,
     });
     if (!res.ok) {
       throw new Error(
-        `Transcription failed: ${res.status} ${await res.text()}`,
+        `Transcription failed: ${res.status} ${await responseErrorDetail(res)}`,
       );
     }
     const json = (await res.json()) as {

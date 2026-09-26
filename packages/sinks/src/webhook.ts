@@ -1,9 +1,15 @@
 import fs from "node:fs";
-import { sessionPaths, type TranscriptSession } from "@resound/core";
+import {
+  deadlineMs,
+  sessionPaths,
+  type TranscriptSession,
+} from "@resound/core";
 import type { Sink, SinkResult } from "./types.js";
 
 export interface WebhookOptions {
   url: string;
+  /** Default: RESOUND_SINK_TIMEOUT_MS or 30 seconds. */
+  timeoutMs?: number;
   /** Optional extra headers (e.g. an auth token). */
   headers?: Record<string, string>;
   /** Injectable fetch for testing. */
@@ -35,12 +41,20 @@ export class WebhookSink implements Sink {
     try {
       const res = await doFetch(this.options.url, {
         method: "POST",
+        signal: AbortSignal.timeout(
+          deadlineMs(
+            this.options.timeoutMs ?? process.env.RESOUND_SINK_TIMEOUT_MS,
+            30_000,
+          ),
+        ),
         headers: {
           "content-type": "application/json",
           ...(this.options.headers ?? {}),
         },
         body: JSON.stringify(payload),
       });
+      // This sink needs only the status; release an unused/streaming body.
+      await res.body?.cancel();
       if (!res.ok) {
         return {
           sink: this.name,

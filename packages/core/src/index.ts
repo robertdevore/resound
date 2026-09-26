@@ -6,3 +6,5 @@ export * from "./paths.js";
 export * from "./validation.js";
 export * from "./consent.js";
 export * from "./store.js";
+export * from "./command.js";
+export * from "./http.js";

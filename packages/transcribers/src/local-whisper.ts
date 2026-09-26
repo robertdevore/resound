@@ -1,8 +1,12 @@
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { formatTimestamp, type TranscriptSegment } from "@resound/core";
+import {
+  runCommand,
+  deadlineMs,
+  formatTimestamp,
+  type TranscriptSegment,
+} from "@resound/core";
 import type {
   Transcriber,
   TranscriptionInput,
@@ -74,6 +78,8 @@ export interface LocalWhisperOptions {
   /** Extra raw args inserted before the audio file. */
   extraArgs?: string[];
   env?: NodeJS.ProcessEnv;
+  /** Default: RESOUND_WHISPER_TIMEOUT_MS or 30 minutes per track. */
+  timeoutMs?: number;
   /** Injectable runner for testing. */
   run?: (
     cmd: string,
@@ -113,7 +119,18 @@ export class LocalWhisperTranscriber implements Transcriber {
     this.defaultThreads =
       env.RESOUND_WHISPER_THREADS ??
       String(Math.min(8, Math.max(2, os.cpus().length - 2)));
-    this.run = opts.run ?? defaultRunner;
+    const timeout = deadlineMs(
+      opts.timeoutMs ?? env.RESOUND_WHISPER_TIMEOUT_MS,
+      30 * 60_000,
+    );
+    this.run =
+      opts.run ??
+      ((cmd, args) =>
+        runCommand(
+          cmd,
+          args,
+          args.includes("--help") ? Math.min(timeout, 30_000) : timeout,
+        ));
   }
 
   async preflight(): Promise<TranscriberPreflightResult> {
@@ -346,19 +363,4 @@ function emitProgress(
   progress: TranscriptionProgress,
 ): void {
   callback?.(progress);
-}
-
-function defaultRunner(
-  cmd: string,
-  args: string[],
-): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout?.on("data", (d) => (stdout += String(d)));
-    child.stderr?.on("data", (d) => (stderr += String(d)));
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
-  });
 }
