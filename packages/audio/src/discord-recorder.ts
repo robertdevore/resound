@@ -32,7 +32,10 @@ import { pcmDurationSeconds, pcmToWav } from "./wav.js";
 // compiles without @discordjs/voice types installed.
 export interface VoiceConnectionLike {
   receiver: {
-    speaking: { on(event: "start", listener: (userId: string) => void): void };
+    speaking: {
+      on(event: "start", listener: (userId: string) => void): void;
+      off?(event: "start", listener: (userId: string) => void): void;
+    };
     subscribe(userId: string, options: unknown): NodeJS.ReadableStream;
   };
 }
@@ -43,6 +46,8 @@ export interface DiscordRecorderOptions {
   resolveUsername?: (userId: string) => string;
   /** Milliseconds of silence that ends an utterance chunk. Default 1000. */
   silenceMs?: number;
+  /** Injectable optional voice dependencies for offline integration tests. */
+  loadDependencies?: () => Promise<VoiceDeps>;
 }
 
 const FORMAT = { sampleRate: 48000, channels: 2, bitDepth: 16 } as const;
@@ -72,18 +77,21 @@ export class DiscordRecorder implements Recorder {
   private readonly connection: VoiceConnectionLike;
   private readonly resolveUsername: (userId: string) => string;
   private readonly silenceMs: number;
+  private readonly loadDependencies: () => Promise<VoiceDeps>;
   private chunks: AudioChunk[] = [];
   private chunkDir = "";
   private startedAt = 0;
-  private active = new Set<string>();
+  private active = new Map<string, { flush(): void; dispose(): void }>();
+  private speakingListener?: (userId: string) => void;
+  private failure?: Error;
   private counters = new Map<string, number>();
-  private paused = false;
   private status: RecordingHealth["status"] = "idle";
 
   constructor(opts: DiscordRecorderOptions) {
     this.connection = opts.connection;
     this.resolveUsername = opts.resolveUsername ?? ((id) => id);
     this.silenceMs = opts.silenceMs ?? 1000;
+    this.loadDependencies = opts.loadDependencies ?? loadVoiceDeps;
   }
 
   async preflight(
@@ -94,7 +102,7 @@ export class DiscordRecorder implements Recorder {
     ];
     const errors: string[] = [];
     try {
-      await loadVoiceDeps();
+      await this.loadDependencies();
     } catch (err) {
       errors.push((err as Error).message);
     }
@@ -127,50 +135,113 @@ export class DiscordRecorder implements Recorder {
   }
 
   async start(options: RecorderStartOptions): Promise<void> {
+    if (this.status !== "idle")
+      throw new Error("Discord recorder is already running.");
+    const { EndBehaviorType, opusDecoderStream } =
+      await this.loadDependencies();
     const paths = sessionPaths(options.sessionDir);
-    fs.mkdirSync(paths.audioRaw, { recursive: true });
-    fs.mkdirSync(paths.audioChunks, { recursive: true });
+    fs.mkdirSync(paths.audioChunks, { recursive: true, mode: 0o700 });
     this.chunkDir = paths.audioChunks;
     this.startedAt = Date.now();
-    this.paused = false;
+    this.chunks = [];
+    this.counters.clear();
+    this.failure = undefined;
     this.status = "recording";
 
-    const { EndBehaviorType, opusDecoderStream } = await loadVoiceDeps();
-
-    this.connection.receiver.speaking.on("start", (userId: string) => {
-      if (this.paused) return;
+    const listener = (userId: string) => {
+      if (this.speakingListener !== listener || this.status !== "recording")
+        return;
       if (this.active.has(userId)) return;
-      this.active.add(userId);
-
-      const opusStream = this.connection.receiver.subscribe(userId, {
-        end: {
-          behavior: EndBehaviorType.AfterSilence,
-          duration: this.silenceMs,
-        },
-      });
-      const startOffset = (Date.now() - this.startedAt) / 1000;
-      const pcm: Buffer[] = [];
-      const decoder = opusDecoderStream();
-
-      (opusStream as NodeJS.ReadableStream).pipe(decoder);
-      decoder.on("data", (d: Buffer) => pcm.push(d));
-      decoder.on("end", () => {
-        this.active.delete(userId);
-        const buffer = Buffer.concat(pcm);
-        if (buffer.length === 0) return;
-        this.writeChunk(userId, buffer, startOffset);
-      });
-      decoder.on("error", () => this.active.delete(userId));
-    });
+      try {
+        const opusStream = this.connection.receiver.subscribe(userId, {
+          end: {
+            behavior: EndBehaviorType.AfterSilence,
+            duration: this.silenceMs,
+          },
+        });
+        const decoder = opusDecoderStream();
+        // 30 seconds of stereo s16le; continuous speech never grows this buffer.
+        const limit = FORMAT.sampleRate * FORMAT.channels * 2 * 30;
+        let pcm: Buffer[] = [];
+        let bytes = 0;
+        let startOffset = 0;
+        let disposed = false;
+        const flush = () => {
+          if (!bytes) return;
+          const buffer = Buffer.concat(pcm, bytes);
+          pcm = [];
+          bytes = 0;
+          this.writeChunk(userId, buffer, startOffset);
+          startOffset += pcmDurationSeconds(buffer, FORMAT);
+        };
+        const dispose = () => {
+          if (disposed) return;
+          disposed = true;
+          this.active.delete(userId);
+          opusStream.unpipe(decoder);
+          (
+            opusStream as NodeJS.ReadableStream & { destroy?(): void }
+          ).destroy?.();
+          (
+            decoder as NodeJS.ReadWriteStream & { destroy?(): void }
+          ).destroy?.();
+          flush();
+        };
+        const fail = (error: Error) => {
+          this.failure ??= error;
+          this.status = "failed";
+          try {
+            dispose();
+          } catch (error) {
+            this.failure ??= error as Error;
+          }
+        };
+        this.active.set(userId, { flush, dispose });
+        decoder.on("data", (data: Buffer) => {
+          if (disposed || this.status !== "recording") return;
+          try {
+            if (!bytes) startOffset = (Date.now() - this.startedAt) / 1000;
+            for (let offset = 0; offset < data.length;) {
+              const length = Math.min(limit - bytes, data.length - offset);
+              // Copy slices so a small remainder cannot retain a large input allocation.
+              pcm.push(Buffer.from(data.subarray(offset, offset + length)));
+              bytes += length;
+              offset += length;
+              if (bytes === limit) flush();
+            }
+          } catch (error) {
+            fail(error as Error);
+          }
+        });
+        decoder.on("end", () => {
+          try {
+            dispose();
+          } catch (error) {
+            fail(error as Error);
+          }
+        });
+        decoder.on("error", fail);
+        opusStream.on("error", fail);
+        opusStream.pipe(decoder);
+      } catch (error) {
+        this.failure = error as Error;
+        this.status = "failed";
+      }
+    };
+    this.speakingListener = listener;
+    this.connection.receiver.speaking.on("start", listener);
   }
 
   pause(): void {
-    this.paused = true;
+    if (this.status !== "recording")
+      throw new Error("Discord recorder is not recording.");
     this.status = "paused";
+    for (const stream of this.active.values()) stream.flush();
   }
 
   resume(): void {
-    this.paused = false;
+    if (this.status !== "paused")
+      throw new Error("Discord recorder is not paused.");
     this.status = "recording";
   }
 
@@ -182,7 +253,7 @@ export class DiscordRecorder implements Recorder {
       this.chunkDir,
       `${userId}-${String(n).padStart(3, "0")}.wav`,
     );
-    fs.writeFileSync(file, pcmToWav(pcm, FORMAT));
+    fs.writeFileSync(file, pcmToWav(pcm, FORMAT), { mode: 0o600 });
     this.chunks.push({
       userId,
       username,
@@ -193,11 +264,25 @@ export class DiscordRecorder implements Recorder {
   }
 
   async stop(): Promise<AudioChunk[]> {
-    // Let any in-flight silence timers flush.
     this.status = "stopping";
-    await new Promise((r) => setTimeout(r, this.silenceMs + 200));
-    this.status = "idle";
+    if (this.speakingListener) {
+      this.connection.receiver.speaking.off?.("start", this.speakingListener);
+      this.speakingListener = undefined;
+    }
+    for (const stream of this.active.values()) {
+      try {
+        stream.dispose();
+      } catch (error) {
+        this.failure ??= error as Error;
+      }
+    }
+    this.status = this.failure ? "failed" : "idle";
+    if (this.failure) throw this.failure;
     return [...this.chunks].sort((a, b) => a.startSeconds - b.startSeconds);
+  }
+
+  async abort(): Promise<AudioChunk[]> {
+    return this.stop();
   }
 
   getHealth(): RecordingHealth {
@@ -220,7 +305,7 @@ export class DiscordRecorder implements Recorder {
   }
 }
 
-interface VoiceDeps {
+export interface VoiceDeps {
   EndBehaviorType: { AfterSilence: unknown };
   opusDecoderStream: () => NodeJS.ReadWriteStream & NodeJS.EventEmitter;
 }

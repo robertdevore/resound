@@ -51,6 +51,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libopus0
       - run: python -m pip install -r packages/audio/python/requirements.txt
       - run: python -m py_compile packages/audio/python/discord_native_sidecar.py
+      - run: python -m unittest discover -s packages/audio/python -p 'test_*.py'
       - run: python packages/audio/python/discord_native_sidecar.py --probe
 
   container:
