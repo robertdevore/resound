@@ -1,0 +1,78 @@
+
+> resound@1.0.1 verify /Users/robertdevore/2026/resound
+> pnpm format:check && pnpm typecheck && pnpm test
+
+
+> resound@1.0.1 format:check /Users/robertdevore/2026/resound
+> prettier --check .
+
+Checking formatting...
+All matched files use Prettier code style!
+
+> resound@1.0.1 typecheck /Users/robertdevore/2026/resound
+> pnpm build && pnpm -r typecheck
+
+
+> resound@1.0.1 build /Users/robertdevore/2026/resound
+> pnpm -r build
+
+Scope: 8 of 9 workspace projects
+packages/core build$ tsc -p tsconfig.json
+packages/core build: Done
+packages/exporters build$ tsc -p tsconfig.json
+packages/audio build$ tsc -p tsconfig.json
+packages/kujo build$ tsc -p tsconfig.json
+packages/sinks build$ tsc -p tsconfig.json
+packages/kujo build: Done
+packages/transcribers build$ tsc -p tsconfig.json
+packages/audio build: Done
+packages/exporters build: Done
+packages/sinks build: Done
+packages/transcribers build: Done
+apps/cli build$ tsc -p tsconfig.json
+apps/bot build$ tsc -p tsconfig.json
+apps/cli build: Done
+apps/bot build: Done
+Scope: 8 of 9 workspace projects
+packages/core typecheck$ tsc -p tsconfig.json --noEmit
+packages/core typecheck: Done
+packages/audio typecheck$ tsc -p tsconfig.json --noEmit
+packages/exporters typecheck$ tsc -p tsconfig.json --noEmit
+packages/kujo typecheck$ tsc -p tsconfig.json --noEmit
+packages/sinks typecheck$ tsc -p tsconfig.json --noEmit
+packages/audio typecheck: Done
+packages/transcribers typecheck$ tsc -p tsconfig.json --noEmit
+packages/sinks typecheck: Done
+packages/kujo typecheck: Done
+packages/exporters typecheck: Done
+packages/transcribers typecheck: Done
+apps/cli typecheck$ tsc -p tsconfig.json --noEmit
+apps/bot typecheck$ tsc -p tsconfig.json --noEmit
+apps/cli typecheck: Done
+apps/bot typecheck: Done
+
+> resound@1.0.1 test /Users/robertdevore/2026/resound
+> vitest run
+
+
+ RUN  v3.2.7 /Users/robertdevore/2026/resound
+
+ ✓ apps/bot/src/policy.test.ts (6 tests) 14ms
+ ✓ apps/cli/src/record.test.ts (8 tests) 21ms
+ ✓ packages/kujo/src/kujo.test.ts (2 tests) 15ms
+ ✓ packages/core/src/core.test.ts (22 tests) 38ms
+ ✓ packages/exporters/src/exporters.test.ts (5 tests) 39ms
+ ✓ packages/sinks/src/sinks.test.ts (4 tests) 23ms
+ ✓ packages/transcribers/src/transcribers.test.ts (13 tests) 62ms
+ ✓ apps/cli/src/cli.test.ts (4 tests) 95ms
+ ✓ apps/bot/src/session-manager.test.ts (13 tests) 734ms
+ ✓ packages/audio/src/audio.test.ts (10 tests) 2384ms
+   ✓ pycord discord recorder > probes and stops through the sidecar protocol  1214ms
+   ✓ pycord discord recorder > terminates a sidecar that misses the startup deadline  378ms
+   ✓ pycord discord recorder > forces down a sidecar that misses the stop deadline  773ms
+
+ Test Files  10 passed (10)
+      Tests  87 passed (87)
+   Start at  01:08:25
+   Duration  6.86s (transform 4.31s, setup 0ms, collect 13.26s, tests 3.43s, environment 5ms, prepare 10.04s)
+

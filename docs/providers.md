@@ -185,3 +185,25 @@ pnpm bot:start
 The operator still needs macOS audio routing that sends Discord/system output
 into a capture device such as BlackHole, plus a microphone device for their own
 voice.
+
+### Resource and failure bounds
+
+Remote transcription uploads speaker tracks sequentially, as local Whisper does.
+This keeps at most one file upload resident per transcription call and stops
+scheduling uploads after a provider failure. Providers are not retried
+implicitly. A declared missing speaker track is an error rather than an omitted
+participant; restore the audio before retrying. Single-file upload size limits
+remain provider-defined.
+
+The legacy Discord receiver flushes at most 30 seconds of decoded PCM per chunk
+(5,760,000 bytes at stereo 48 kHz/s16le), even without silence. Pause flushes prior
+samples and discards incoming paused samples; stop detaches reception and flushes
+immediately. Chunk filenames and metadata remain compatible, but continuous
+utterances may span multiple files. This does not change its unsupported DAVE
+status or make it a production-supported receiver.
+
+The Pycord sidecar converts PCM to WAV in 1 MiB reads instead of loading each
+complete recording into memory. `python3 -m unittest discover -s packages/audio/python
+-p 'test_*.py'` runs offline sample-equivalence and bounded-memory checks without
+Discord dependencies. `python3 scripts/benchmarks/wav-memory.py` compares the
+original conversion with the current implementation and verifies identical bytes.
