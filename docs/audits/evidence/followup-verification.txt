@@ -28,31 +28,31 @@ packages/audio build$ tsc -p tsconfig.json
 packages/exporters build$ tsc -p tsconfig.json
 packages/kujo build$ tsc -p tsconfig.json
 packages/sinks build$ tsc -p tsconfig.json
-packages/exporters build: Done
-packages/transcribers build$ tsc -p tsconfig.json
 packages/kujo build: Done
+packages/transcribers build$ tsc -p tsconfig.json
+packages/exporters build: Done
 packages/sinks build: Done
 packages/audio build: Done
 packages/transcribers build: Done
-apps/bot build$ tsc -p tsconfig.json
 apps/cli build$ tsc -p tsconfig.json
+apps/bot build$ tsc -p tsconfig.json
 apps/cli build: Done
 apps/bot build: Done
 Scope: 8 of 9 workspace projects
 packages/core typecheck$ tsc -p tsconfig.json --noEmit
 packages/core typecheck: Done
-packages/exporters typecheck$ tsc -p tsconfig.json --noEmit
-packages/sinks typecheck$ tsc -p tsconfig.json --noEmit
-packages/kujo typecheck$ tsc -p tsconfig.json --noEmit
 packages/audio typecheck$ tsc -p tsconfig.json --noEmit
+packages/exporters typecheck$ tsc -p tsconfig.json --noEmit
+packages/kujo typecheck$ tsc -p tsconfig.json --noEmit
+packages/sinks typecheck$ tsc -p tsconfig.json --noEmit
 packages/exporters typecheck: Done
 packages/transcribers typecheck$ tsc -p tsconfig.json --noEmit
 packages/kujo typecheck: Done
-packages/sinks typecheck: Done
 packages/audio typecheck: Done
+packages/sinks typecheck: Done
 packages/transcribers typecheck: Done
-apps/cli typecheck$ tsc -p tsconfig.json --noEmit
 apps/bot typecheck$ tsc -p tsconfig.json --noEmit
+apps/cli typecheck$ tsc -p tsconfig.json --noEmit
 apps/cli typecheck: Done
 apps/bot typecheck: Done
 
@@ -64,9 +64,9 @@ apps/bot typecheck: Done
 
 
  Test Files  14 passed (14)
-      Tests  111 passed (111)
-   Start at  02:12:28
-   Duration  5.84s (transform 5.86s, setup 0ms, import 8.99s, tests 6.43s, environment 4ms)
+      Tests  112 passed (112)
+   Start at  02:16:14
+   Duration  5.72s (transform 5.87s, setup 0ms, import 8.72s, tests 6.48s, environment 19ms)
 
 
 ## followup-node22.log
@@ -79,9 +79,9 @@ apps/bot typecheck: Done
 
 
  Test Files  14 passed (14)
-      Tests  111 passed (111)
-   Start at  02:11:22
-   Duration  5.92s (transform 7.16s, setup 0ms, import 10.19s, tests 6.43s, environment 5ms)
+      Tests  112 passed (112)
+   Start at  02:16:23
+   Duration  5.70s (transform 7.00s, setup 0ms, import 10.28s, tests 6.06s, environment 6ms)
 
 
 ## followup-python.log

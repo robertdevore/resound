@@ -5,7 +5,7 @@
 - Repository: `robertdevore/resound`; initial branch `main`, current branch
   `hardening/repository-audit-20260926` (draft PR #12).
 - Starting SHA: `f2b5e10a2b1bcada6fe65f91807d31c32d6dcc96` (clean tree).
-- Ending implementation SHA: `57ea3f8ad3d6cc4c4bb8abdd38b2de3e31f730c0`.
+- Ending implementation SHA: `ae49764f8ab9544c421a1b093734e83452e048aa`.
   The following documentation/evidence-only commit contains this report; obtain
   its exact revision with `git log -1 --format=%H -- docs/audits/repository-hardening.md`.
 - Purpose: self-hosted voice capture/import, local or remote transcription, and
@@ -236,7 +236,7 @@ acceptance and H13 were open at that checkpoint. The follow-up below resolves H1
 User requested the remaining items on the same branch, starting at
 `528a39cf48a4da2dc53db182eac7b41498f5d16a`. Baseline: the preceding verified
 102-test TypeScript suite, three Python tests and five passing CI jobs.
-Ending implementation SHA: `57ea3f8ad3d6cc4c4bb8abdd38b2de3e31f730c0`. The
+Ending implementation SHA: `ae49764f8ab9544c421a1b093734e83452e048aa`. The
 follow-up does not claim live acceptance; it uses deterministic synthetic audio,
 real loopback HTTP and controlled child processes.
 
@@ -286,7 +286,7 @@ reused for safe speaker WAV basenames. No Kujo cross-repository change is needed
 
 ### Measured impact and ratchets
 
-- TypeScript regression suite: 102 → 111 tests, 12 → 14 files.
+- TypeScript regression suite: 102 → 112 tests, 12 → 14 files.
 - Python regression suite: 3 → 8 tests.
 - A 1 MiB subprocess error is preserved exactly on disk and returns under 8.5 KiB
   of preview/receipt; the same bound is tested for 1 MiB provider errors. This is
@@ -307,8 +307,8 @@ reused for safe speaker WAV basenames. No Kujo cross-repository change is needed
 Commands use supported Node 24.20.0 (or explicitly Node 22.22.0), not host Node 26.
 Exact command bodies and concise evidence are retained alongside this report:
 
-- `pnpm verify` — formatting, all package builds/types and 111 TypeScript tests.
-- `pnpm test` under Node 22.22.0 — 111 tests.
+- `pnpm verify` — formatting, all package builds/types and 112 TypeScript tests.
+- `pnpm test` under Node 22.22.0 — 112 tests.
 - `python3 -m unittest discover -s packages/audio/python -p 'test_*.py'` — 8 tests.
 - `python3 packages/audio/python/discord_native_sidecar.py --probe` — pinned
   Pycord, DAVE receive and libopus ready; this is not live recording acceptance.
@@ -319,8 +319,15 @@ Exact command bodies and concise evidence are retained alongside this report:
 
 During implementation, one missing import and one generated syntax error failed
 local verification and were corrected before the final run. No test was disabled
-or weakened. The benchmark was rerun without the verification build competing
+or weakened. Final event-handler review also added an unreadable-diagnostic-file
+regression: ffmpeg completion rejects the recording promise instead of throwing
+from the close event. The benchmark was rerun without the verification build competing
 for CPU; only that isolated sample is used above. Live deployment acceptance is
 the only unperformed requested verification category. Historical SignalBox H13
 items above are not new findings; no duplicate capture or automatic disposition
 was created.
+
+CI checkpoint `2d25b7e`: all five jobs passed in
+https://github.com/robertdevore/resound/actions/runs/36223152413.
+The final diagnostic-read edge case was subsequently verified locally; latest
+head CI is linked from PR #12 and the Strata current-state handoff.
