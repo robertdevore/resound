@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { sessionPaths } from "./paths.js";
 import { parseJsonl } from "./jsonl.js";
 import type { SessionManifest, TranscriptSession } from "./types.js";
@@ -10,17 +11,46 @@ export function readManifest(dir: string): SessionManifest {
   return JSON.parse(fs.readFileSync(p, "utf8")) as SessionManifest;
 }
 
+/** Atomically replace one private artifact; failures preserve the old file. */
+export function writePrivateFile(file: string, content: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const tempDir = fs.mkdtempSync(
+    path.join(path.dirname(file), ".resound-write-"),
+  );
+  try {
+    const tempFile = path.join(tempDir, "content");
+    fs.writeFileSync(tempFile, content, { encoding: "utf8", mode: 0o600 });
+    fs.renameSync(tempFile, file);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+/** Reserve a new session folder without reusing another session's artifacts. */
+export function reserveSessionDirectory(
+  dir: string,
+  manifest: SessionManifest,
+): string {
+  fs.mkdirSync(path.dirname(dir), { recursive: true, mode: 0o700 });
+  let candidate = dir;
+  for (;;) {
+    try {
+      fs.mkdirSync(candidate, { mode: 0o700 });
+      if (candidate !== dir) manifest.session_id += candidate.slice(dir.length);
+      return candidate;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      candidate = `${dir}-${randomUUID()}`;
+    }
+  }
+}
+
 /** Write a manifest.json (pretty-printed) into a session directory. */
 export function writeManifest(dir: string, manifest: SessionManifest): void {
-  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const manifestPath = sessionPaths(dir).manifest;
-  const tempPath = `${manifestPath}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(manifest, null, 2) + "\n", {
-    encoding: "utf8",
-    mode: 0o600,
-  });
-  fs.chmodSync(tempPath, 0o600);
-  fs.renameSync(tempPath, manifestPath);
+  writePrivateFile(
+    sessionPaths(dir).manifest,
+    JSON.stringify(manifest, null, 2) + "\n",
+  );
 }
 
 /** Load a full session (manifest + segments) from disk. */
