@@ -167,9 +167,9 @@ contract, not an assumed upstream defect or a required Kujo migration.
   `0.02` seconds. This proves behavior for those inputs, not exposure in the
   pinned live receiver. Obtain nonprivate real packet fixtures before choosing
   timestamp/wraparound/silence/mixing semantics.
-- **P2 verification limitation:** run container CI with an available daemon and
-  the documented private-channel/macOS/provider acceptance checks. Node 20/Linux
-  matrix remains CI-owned; local runs covered Node 22/24 on macOS.
+- **P2 verification limitation:** run the documented private-channel/macOS/provider
+  acceptance checks. The remote CI matrix passed on Linux and macOS, including
+  Node 20/22, pnpm 9/11, Python sidecar and container build (receipt below).
 - **P2 / needs more evidence:** very long sessions can still fill disk, Python
   mixing remains CPU work, and external command/HTTP responses may hang or emit
   large diagnostics. No timeout/retry changes or arbitrary data truncation were
@@ -213,3 +213,23 @@ assignment and missing imports were corrected. A Python benchmark initially used
 `hashlib.file_digest` unavailable on Python 3.10; it now streams hashing with the
 supported standard library. None are baseline product failures; final checks
 contain no known introduced regression.
+
+## Publication and required CI
+
+Protected `main` rejected direct push because required status checks had not run.
+The changes were pushed to `hardening/repository-audit-20260926` and
+[draft PR #12](https://github.com/robertdevore/resound/pull/12); no protection
+bypass or merge was performed.
+
+[CI run 36220933243](https://github.com/robertdevore/resound/actions/runs/36220933243)
+passed all five required jobs for revision
+`2acd0986fb2b6b3bc8a956c7f54a7586ae273eee`:
+
+- Node 20 / pnpm 9 / Linux: 33 s.
+- Node 22 / pnpm 11 / Linux: 35 s.
+- Node 22 / pnpm 9 / macOS: 26 s.
+- Python sidecar, including new offline regressions: 33 s.
+- Container build: 1 min 29 s.
+
+The container result closes the local-daemon verification gap; live recording
+acceptance and H13 remain open. This final receipt changes documentation only.
