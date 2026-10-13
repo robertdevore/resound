@@ -1,0 +1,85 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/transcribers/src/tracks.test.ts (18 tests | 17 failed) 479ms
+     × local rejects invalid startSeconds=-1 before processing any track 30ms
+     × local rejects invalid startSeconds=NaN before processing any track 11ms
+     × local rejects invalid startSeconds=Infinity before processing any track 13ms
+     × local rejects invalid startSeconds=2 before processing any track 25ms
+     × local rejects invalid durationSeconds=-1 before processing any track 14ms
+     × local rejects invalid durationSeconds=NaN before processing any track 13ms
+     × local rejects invalid durationSeconds=Infinity before processing any track 12ms
+     × local rejects invalid durationSeconds=2 before processing any track 13ms
+     × remote rejects invalid startSeconds=-1 before processing any track 165ms
+     × remote rejects invalid startSeconds=NaN before processing any track 79ms
+     × remote rejects invalid startSeconds=Infinity before processing any track 10ms
+     × remote rejects invalid startSeconds=2 before processing any track 17ms
+     × remote rejects invalid durationSeconds=-1 before processing any track 31ms
+     × remote rejects invalid durationSeconds=NaN before processing any track 11ms
+     × remote rejects invalid durationSeconds=Infinity before processing any track 7ms
+     × remote rejects invalid durationSeconds=2 before processing any track 7ms
+     × rejects overflow instead of silently resetting the timeline to zero 5ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 17 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid startSeconds=-1 before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid startSeconds=NaN before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid startSeconds=Infinity before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid startSeconds=2 before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid durationSeconds=-1 before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid durationSeconds=NaN before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid durationSeconds=Infinity before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > local rejects invalid durationSeconds=2 before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid startSeconds=-1 before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid startSeconds=NaN before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid startSeconds=Infinity before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid startSeconds=2 before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid durationSeconds=-1 before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid durationSeconds=NaN before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid durationSeconds=Infinity before processing any track
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > remote rejects invalid durationSeconds=2 before processing any track
+AssertionError: promise resolved "[]" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+[]
+
+ ❯ packages/transcribers/src/tracks.test.ts:36:98
+     34|         ? new LocalWhisperTranscriber({ run, env: {} })
+     35|         : new OpenAICompatibleTranscriber({ apiKey: "synthetic", baseU…
+     36|       await expect(transcriber.transcribe({ audioTracks: [track, { ...…
+       |                                                                                                  ^
+     37|       expect(run).not.toHaveBeenCalled();
+     38|       expect(fetch).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/17]⎯
+
+ FAIL  packages/transcribers/src/tracks.test.ts > track timing boundary > rejects overflow instead of silently resetting the timeline to zero
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/transcribers/src/tracks.test.ts:45:148
+     43|   });
+     44|   it("rejects overflow instead of silently resetting the timeline to z…
+     45|     expect(() => mapRawSegmentsToSpeakerSegments([{ start: 1e308, end:…
+       |                                                                                                                                                    ^
+     46|   });
+     47| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/17]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  17 failed | 1 passed (18)
+   Start at  23:38:14
+   Duration  2.33s (transform 477ms, setup 0ms, import 616ms, tests 479ms, environment 2ms)
+

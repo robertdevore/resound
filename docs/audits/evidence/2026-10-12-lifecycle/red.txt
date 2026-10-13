@@ -1,0 +1,94 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/audio/src/system-recorder.test.ts (5 tests | 5 failed) 5087ms
+     × rejects a second start without replacing the owned process 5026ms
+     × reports a failed exit and releases ownership after failed stop 26ms
+     × shares concurrent and repeated stop requests 7ms
+     × rejects pause and resume after signal termination 7ms
+     × clears the startup timer and permits retry after an immediate failure 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/audio/src/system-recorder.test.ts > system recorder ownership > rejects a second start without replacing the owned process
+Error: Test timed out in 5000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+ ❯ packages/audio/src/system-recorder.test.ts:43:3
+     41|     await ready;
+     42|   }
+     43|   it("rejects a second start without replacing the owned process", asy…
+       |   ^
+     44|     const ready = recorder.start({ sessionDir: dir });
+     45|     await expect(recorder.start({ sessionDir: dir })).rejects.toThrow(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  packages/audio/src/system-recorder.test.ts > system recorder ownership > reports a failed exit and releases ownership after failed stop
+AssertionError: expected 'recording' to be 'failed' // Object.is equality
+
+Expected: "failed"
+Received: "recording"
+
+ ❯ packages/audio/src/system-recorder.test.ts:56:41
+     54|     await start();
+     55|     child.close(1);
+     56|     expect(recorder.getHealth().status).toBe("failed");
+       |                                         ^
+     57|     await expect(recorder.stop()).rejects.toThrow(/ffmpeg exited 1/);
+     58|     child = new FakeChild();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  packages/audio/src/system-recorder.test.ts > system recorder ownership > shares concurrent and repeated stop requests
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ packages/audio/src/system-recorder.test.ts:70:31
+     68|     const first = recorder.stop();
+     69|     const second = recorder.stop();
+     70|     expect(child.stdin.write).toHaveBeenCalledTimes(1);
+       |                               ^
+     71|     child.close(0);
+     72|     expect(await second).toEqual(await first);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  packages/audio/src/system-recorder.test.ts > system recorder ownership > rejects pause and resume after signal termination
+AssertionError: expected 'recording' to be 'idle' // Object.is equality
+
+Expected: "idle"
+Received: "recording"
+
+ ❯ packages/audio/src/system-recorder.test.ts:78:41
+     76|     await start();
+     77|     child.close(null, "SIGTERM");
+     78|     expect(recorder.getHealth().status).toBe("idle");
+       |                                         ^
+     79|     expect(() => recorder.pause()).toThrow(/not running/);
+     80|     expect(() => recorder.resume()).toThrow(/not running/);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  packages/audio/src/system-recorder.test.ts > system recorder ownership > clears the startup timer and permits retry after an immediate failure
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/audio/src/system-recorder.test.ts:88:32
+     86|     child.close(1);
+     87|     await rejected;
+     88|     expect(vi.getTimerCount()).toBe(0);
+       |                                ^
+     89|     expect(recorder.getHealth().status).toBe("failed");
+     90|     child = new FakeChild();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  23:36:30
+   Duration  6.56s (transform 390ms, setup 0ms, import 489ms, tests 5.09s, environment 0ms)
+
