@@ -1,0 +1,27 @@
+
+> resound@1.0.1 test:cli /Users/robertdevore/2026/resound
+> node scripts/verify-cli.mjs
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: validate /var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-cli-smoke-fmyG2j/sessions/2026-10-13/mock-smoke-000055245: 
+
+0 !== 1
+
+    at run (file:///Users/robertdevore/2026/resound/scripts/verify-cli.mjs:30:10)
+    at file:///Users/robertdevore/2026/resound/scripts/verify-cli.mjs:58:16
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at async node:internal/modules/esm/loader:647:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: 0,
+  expected: 1,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.20.0
+ ELIFECYCLE  Command failed with exit code 1.

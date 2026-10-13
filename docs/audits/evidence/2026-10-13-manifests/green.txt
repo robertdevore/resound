@@ -1,0 +1,9 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+
+ Test Files  3 passed (3)
+      Tests  59 passed (59)
+   Start at  00:00:30
+   Duration  1.88s (transform 539ms, setup 0ms, import 1.23s, tests 386ms, environment 19ms)
+

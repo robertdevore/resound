@@ -1,0 +1,95 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/core/src/manifest-validation.test.ts (25 tests | 23 failed) 113ms
+     × rejects malformed title 60ms
+     × rejects malformed started_at 6ms
+     × rejects malformed ended_at 2ms
+     × rejects malformed status 1ms
+     × rejects malformed schema_version 1ms
+     × rejects malformed source 1ms
+     × rejects malformed started_by 1ms
+     × rejects malformed started_by 1ms
+     × rejects malformed recorder 6ms
+     × rejects malformed recorder 1ms
+     × rejects malformed transcriber 1ms
+     × rejects malformed transcriber 1ms
+     × rejects malformed participants 1ms
+     × rejects malformed participants 1ms
+     × rejects malformed consent_events 1ms
+     × rejects malformed consent_events 1ms
+     × rejects malformed audio_health 1ms
+     × rejects malformed warnings 1ms
+     × rejects malformed audio_files 1ms
+     × rejects malformed audio_files 1ms
+     × rejects malformed audio_files 1ms
+     × rejects malformed audio_files 1ms
+     × reports nested corruption through on-disk validation 14ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 23 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed title
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed started_at
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed ended_at
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed status
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed schema_version
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed source
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed started_by
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed started_by
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed recorder
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed recorder
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed transcriber
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed transcriber
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed participants
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed participants
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed consent_events
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed consent_events
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed audio_health
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed warnings
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed audio_files
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed audio_files
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed audio_files
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > rejects malformed audio_files
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/core/src/manifest-validation.test.ts:29:26
+     27|   ])("rejects malformed %s", (field, value) => {
+     28|     const result = validateManifest({ ...fixture(), [field]: value });
+     29|     expect(result.valid).toBe(false);
+       |                          ^
+     30|     expect(result.errors.join(" ")).toContain(field);
+     31|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/23]⎯
+
+ FAIL  packages/core/src/manifest-validation.test.ts > manifest structure validation > reports nested corruption through on-disk validation
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/core/src/manifest-validation.test.ts:54:28
+     52|       fs.writeFileSync(path.join(dir, "transcript.jsonl"), "");
+     53|       const result = validateSession(dir);
+     54|       expect(result.valid).toBe(false);
+       |                            ^
+     55|       expect(result.errors.join(" ")).toContain("participants[0]");
+     56|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/23]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  23 failed | 2 passed (25)
+   Start at  23:59:44
+   Duration  2.08s (transform 407ms, setup 0ms, import 540ms, tests 113ms, environment 2ms)
+
