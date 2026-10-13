@@ -92,3 +92,38 @@ describe("createFileSession", () => {
     ).rejects.toThrow(/not found/);
   });
 });
+
+it("flushes the complete stdout sink through a pipe before exiting", async () => {
+  const { execFile } = await import("node:child_process");
+  const { promisify } = await import("node:util");
+  const { fileURLToPath } = await import("node:url");
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "resound-stdout-pipe-"));
+  try {
+    const session = await createMockSession({
+      title: "Pipe",
+      env: { RESOUND_OUTPUT_DIR: out, RESOUND_TRANSCRIBER: "mock" },
+    });
+    const markdown = "synthetic transcript line\n".repeat(100_000);
+    fs.writeFileSync(path.join(session.dir, "transcript.md"), markdown);
+    const { stdout, stderr } = await promisify(execFile)(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL("../../../node_modules/tsx/dist/cli.mjs", import.meta.url),
+        ),
+        "--tsconfig",
+        fileURLToPath(new URL("../../../tsconfig.base.json", import.meta.url)),
+        fileURLToPath(new URL("./index.ts", import.meta.url)),
+        "sink",
+        "stdout",
+        session.dir,
+      ],
+      { cwd: out, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 },
+    );
+    expect(stdout.length).toBe(markdown.length);
+    expect(stdout).toBe(markdown);
+    expect(stderr).toContain("[ok] stdout:");
+  } finally {
+    fs.rmSync(out, { recursive: true, force: true });
+  }
+});

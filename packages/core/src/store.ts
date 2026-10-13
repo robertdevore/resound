@@ -101,19 +101,28 @@ export function listSessions(root: string): string[] {
  * path, or a session_id / folder name searched under the root.
  */
 export function resolveSession(ref: string, root: string): string | undefined {
+  if (!ref.trim()) throw new Error("Session reference must not be empty.");
   if (fs.existsSync(path.join(ref, "manifest.json"))) return ref;
   const sessions = listSessions(root);
-  // Exact directory-name match.
-  const byName = sessions.find((s) => path.basename(s) === ref);
-  if (byName) return byName;
-  // session_id match from manifest.
-  for (const dir of sessions) {
-    try {
-      if (readManifest(dir).session_id === ref) return dir;
-    } catch {
-      /* ignore unreadable manifests */
+  const unique = (matches: string[]): string | undefined => {
+    if (matches.length > 1) {
+      throw new Error(
+        `Ambiguous session reference "${ref}" (${matches.length} matches). Use an exact session path.`,
+      );
     }
-  }
-  // Loose substring match on folder name.
-  return sessions.find((s) => path.basename(s).includes(ref));
+    return matches[0];
+  };
+  const byName = unique(sessions.filter((s) => path.basename(s) === ref));
+  if (byName) return byName;
+  const byId = unique(
+    sessions.filter((dir) => {
+      try {
+        return readManifest(dir).session_id === ref;
+      } catch {
+        return false; // Unreadable historical manifests cannot match an ID.
+      }
+    }),
+  );
+  if (byId) return byId;
+  return unique(sessions.filter((s) => path.basename(s).includes(ref)));
 }
