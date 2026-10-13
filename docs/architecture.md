@@ -106,3 +106,11 @@ starts; late provider results cannot overwrite the interrupted state. Recovery
 requires all declared speaker tracks, retaining mixed-only recovery for older
 manifests. Restore missing audio before retrying; a mixed track does not silently
 replace an incomplete speaker roster.
+
+Configured transcript outputs must not overlap `audio/raw`, `audio/chunks`, or
+any declared audio file/chunk directory (including legacy locations). Path
+resolution rejects equal, parent, and child collisions before exports are
+written, preserving audio needed for recovery. Output paths remain relative to
+the session directory; declared audio paths retain their existing absolute or
+working-directory-relative interpretation. This lexical collision check does
+not provide isolation against an operator changing filesystem symlinks.
