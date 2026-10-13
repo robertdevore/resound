@@ -1,0 +1,99 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/audio/src/audio.test.ts (13 tests | 2 failed) 3895ms
+   × rejects invalid sidecar deadlines before launching capture 8ms
+   × reports a closed sidecar command pipe without an uncaught error 600ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/audio/src/audio.test.ts > rejects invalid sidecar deadlines before launching capture
+AssertionError: expected [Function] to throw error matching /timeout must be a positive integer/ but got 'ENOENT: no such file or directory, mk…'
+
+- Expected:
+/timeout must be a positive integer/
+
++ Received:
+"ENOENT: no such file or directory, mkdir '/unused/audio/raw'"
+
+ ❯ packages/audio/src/audio.test.ts:286:57
+    284|   for (const invalid of [0, -1, NaN, Infinity, 2147483648]) {
+    285|     const recorder = new PycordDiscordRecorder({token: "synthetic", gu…
+    286|     await expect(recorder.start({sessionDir: "/unused"})).rejects.toTh…
+       |                                                         ^
+    287|   }
+    288| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/audio/src/audio.test.ts > reports a closed sidecar command pipe without an uncaught error
+AssertionError: expected [Function] to throw error matching /command pipe/ but got 'Pycord sidecar did not stop within 50…'
+
+- Expected:
+/command pipe/
+
++ Received:
+"Pycord sidecar did not stop within 500ms."
+
+ ❯ packages/audio/src/audio.test.ts:299:33
+    297|   try {
+    298|     await recorder.start({sessionDir: dir});
+    299|     await expect(recorder.stop()).rejects.toThrow(/command pipe/);
+       |                                 ^
+    300|     expect(recorder.getHealth().status).toBe("failed");
+    301|   } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: spawn /not/a/python ENOENT
+ ❯ Process.ChildProcess._handle.onexit node:internal/child_process:287:19
+ ❯ onErrorNT node:internal/child_process:525:16
+ ❯ processTicksAndRejections node:internal/process/task_queues:90:21
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: -2, code: 'ENOENT', syscall: 'spawn /not/a/python', path: '/not/a/python', spawnargs: [ '/Users/robertdevore/2026/resound/packages/audio/python/discord_native_sidecar.py', '--guild-id', '1', '--channel-id', '2', '--session-dir', '/unused' ] }
+This error originated in "packages/audio/src/audio.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "reports a closed sidecar command pipe without an uncaught error". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+Error: write EPIPE
+ ❯ afterWriteDispatched node:internal/stream_base_commons:159:15
+ ❯ writeGeneric node:internal/stream_base_commons:150:3
+ ❯ Socket._writeGeneric node:net:1258:11
+ ❯ Socket._write node:net:1270:8
+ ❯ writeOrBuffer node:internal/streams/writable:574:12
+ ❯ _write node:internal/streams/writable:503:10
+ ❯ Socket.Writable.write node:internal/streams/writable:512:10
+ ❯ PycordDiscordRecorder.stop packages/audio/src/pycord-discord-recorder.ts:320:23
+    318|       (event): event is SidecarStoppedEvent => event.event === "stoppe…
+    319|     );
+    320|     this.child.stdin?.write("stop\n");
+       |                       ^
+    321|     this.child.stdin?.end();
+    322|     const timeoutMs =
+ ❯ packages/audio/src/audio.test.ts:299:27
+ ❯ processTicksAndRejections node:internal/process/task_queues:104:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: -32, code: 'EPIPE', syscall: 'write' }
+This error originated in "packages/audio/src/audio.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "reports a closed sidecar command pipe without an uncaught error". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 11 passed (13)
+     Errors  2 errors
+   Start at  22:13:50
+   Duration  4.48s (transform 281ms, setup 0ms, import 347ms, tests 3.90s, environment 0ms)
+
