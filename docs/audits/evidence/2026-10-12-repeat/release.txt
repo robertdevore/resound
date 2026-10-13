@@ -1,0 +1,5 @@
+
+> resound@1.0.1 release:check /Users/robertdevore/2026/resound
+> node scripts/verify-release.mjs
+
+Release metadata is consistent for v1.0.1 across 9 packages.

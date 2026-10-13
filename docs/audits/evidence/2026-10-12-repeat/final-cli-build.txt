@@ -1,0 +1,4 @@
+
+> @resound/cli@1.0.1 build /Users/robertdevore/2026/resound/apps/cli
+> tsc -p tsconfig.json
+
