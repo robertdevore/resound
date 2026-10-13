@@ -1,0 +1,211 @@
+{
+  "actions": [
+    {
+      "action": "update",
+      "resolves": [
+        {
+          "id": 1239934,
+          "path": "apps__bot>discord.js>undici",
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "id": 1240039,
+          "path": "apps__bot>discord.js>undici",
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        },
+        {
+          "id": 1240042,
+          "path": "apps__bot>discord.js>undici",
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "module": "undici",
+      "target": "6.29.0",
+      "depth": 3
+    },
+    {
+      "action": "update",
+      "resolves": [
+        {
+          "id": 1241209,
+          "path": ".>vitest>vite>postcss>source-map-js",
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "module": "source-map-js",
+      "target": "1.2.2",
+      "depth": 5
+    }
+  ],
+  "advisories": {
+    "1239934": {
+      "findings": [
+        {
+          "version": "6.28.0",
+          "paths": [
+            "apps/bot > discord.js@14.27.0 > @discordjs/rest@2.6.2 > undici@6.28.0",
+            "apps/bot > discord.js@14.27.0 > @discordjs/ws@1.2.3 > @discordjs/rest@2.6.2 > undici@6.28.0",
+            "apps/bot > discord.js@14.27.0 > undici@6.28.0"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-3wwx-pv8p-q78v\n- https://nvd.nist.gov/vuln/detail/CVE-2026-85024\n- https://github.com/nodejs/undici/commit/07c60d9c7099a910451244afe42861bbdbdd974c\n- https://github.com/nodejs/undici/commit/4411a238a98e8791da5fff10cc9e3578a7668ed6\n- https://github.com/nodejs/undici/commit/63cf698b611fecc6ee0a17b185b930051e4b982f\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v6.28.1\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-3wwx-pv8p-q78v",
+      "created": "2026-09-28T21:42:37.000Z",
+      "id": 1239934,
+      "npm_advisory_id": null,
+      "overview": "## Impact\n\nundici's WebSocket client (including Node.js's bundled `globalThis.WebSocket`) crashes the entire Node.js process when a remote WebSocket peer sends a permessage-deflate compressed message that crosses the decompressed-payload size limit and then contains a malformed DEFLATE block. In `lib/web/websocket/permessage-deflate.js`, the size-limit cleanup calls `removeAllListeners()` on the internal zlib `InflateRaw`, removing its `error` listener, but leaves the stream running. The inflater then emits a `Z_DATA_ERROR` with no listener attached, which Node.js treats as a fatal unhandled `error` event and terminates the process. Application `error`/`close` handlers on the public WebSocket cannot observe or prevent this, because the failing object is the internal `InflateRaw`.\n\nA malicious or compromised WebSocket server can crash a client with a single connection, unauthenticated and without any application mistake. The attack is asymmetric (about 130 KB on the wire expands past the limit) and can be repeated on reconnect (crash loop).\n\nAffected applications are those using the undici WebSocket client (`new WebSocket(...)`) or Node.js's bundled `globalThis.WebSocket` that can be induced to connect to an attacker-controlled or compromised WebSocket endpoint.\n\n## Patches\n\nUpgrade to undici v6.28.1, v7.29.1 or v8.10.2.\n\n## Workarounds\n\nNo workaround is available.",
+      "reported_by": null,
+      "title": "undici vulnerable to Denial of Service via unhandled error in WebSocket permessage-deflate decompression",
+      "metadata": null,
+      "cves": ["CVE-2026-85024"],
+      "access": "public",
+      "severity": "moderate",
+      "module_name": "undici",
+      "vulnerable_versions": ">=6.25.0 <6.28.1",
+      "github_advisory_id": "GHSA-3wwx-pv8p-q78v",
+      "recommendation": "Upgrade to version 6.28.1 or later",
+      "patched_versions": ">=6.28.1",
+      "updated": "2026-09-28T21:42:38.000Z",
+      "cvss": {
+        "score": 5.9,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": ["CWE-248"],
+      "url": "https://github.com/advisories/GHSA-3wwx-pv8p-q78v"
+    },
+    "1240039": {
+      "findings": [
+        {
+          "version": "6.28.0",
+          "paths": [
+            "apps/bot > discord.js@14.27.0 > @discordjs/rest@2.6.2 > undici@6.28.0",
+            "apps/bot > discord.js@14.27.0 > @discordjs/ws@1.2.3 > @discordjs/rest@2.6.2 > undici@6.28.0",
+            "apps/bot > discord.js@14.27.0 > undici@6.28.0"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-r53p-7pc4-xj5r\n- https://nvd.nist.gov/vuln/detail/CVE-2026-18540\n- https://github.com/nodejs/undici/commit/0160a719063fb0a77f4fdf9500b9166b91e14329\n- https://github.com/nodejs/undici/commit/cd8af90b38ae33c2838d54a2d629774122effe95\n- https://github.com/nodejs/undici/commit/ce31bc824b578008faae5d3350da66c1b5f71548\n- https://hackerone.com/reports/3900104\n- https://hackerone.com/reports/3900615\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v6.28.1\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-r53p-7pc4-xj5r",
+      "created": "2026-09-29T18:22:07.000Z",
+      "id": 1240039,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nUndici's `interceptors.retry()` can resume a request after a partial response and append the resumed bytes to an already partially delivered body, while the application still receives the original response's status and headers. When that response carried a `Content-Length`, the application can receive a longer body. Applications that forward Undici's status, headers, and body downstream without recalculating framing, for example proxy or gateway applications, may emit a response whose body exceeds the forwarded `Content-Length`, and the excess bytes can be read as the start of a subsequent HTTP response (downstream response splitting or desynchronization).\n\nFor example, a `404 Not Found` with `Content-Length: 2` that sends one byte then closes can be resumed with an open-ended `Range` request, and the resumed `206 Partial Content` bytes are appended, so the application receives more than two body bytes while still seeing `Content-Length: 2`. The bug requires `interceptors.retry()` enabled, an attacker-controlled or faulty upstream, and a downstream forwarder that does not recalculate `Content-Length`.\n\n### Patches\n\nPatched in undici v6.28.1, v7.29.1, and v8.10.2. Upgrade to one of these or later.\n\n### Workarounds\n\n- Disable `interceptors.retry()` for untrusted upstreams, or set `maxRetries: 0`.\n- Remove or recalculate `Content-Length` before forwarding a response body assembled by Undici.",
+      "reported_by": null,
+      "title": "undici vulnerable to downstream response splitting via retry interceptor",
+      "metadata": null,
+      "cves": ["CVE-2026-18540"],
+      "access": "public",
+      "severity": "low",
+      "module_name": "undici",
+      "vulnerable_versions": "<6.28.1",
+      "github_advisory_id": "GHSA-r53p-7pc4-xj5r",
+      "recommendation": "Upgrade to version 6.28.1 or later",
+      "patched_versions": ">=6.28.1",
+      "updated": "2026-09-29T18:22:08.000Z",
+      "cvss": {
+        "score": 3.7,
+        "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      },
+      "cwe": ["CWE-444"],
+      "url": "https://github.com/advisories/GHSA-r53p-7pc4-xj5r"
+    },
+    "1240042": {
+      "findings": [
+        {
+          "version": "6.28.0",
+          "paths": [
+            "apps/bot > discord.js@14.27.0 > @discordjs/rest@2.6.2 > undici@6.28.0",
+            "apps/bot > discord.js@14.27.0 > @discordjs/ws@1.2.3 > @discordjs/rest@2.6.2 > undici@6.28.0",
+            "apps/bot > discord.js@14.27.0 > undici@6.28.0"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://github.com/nodejs/undici/security/advisories/GHSA-rfgv-xxqx-mfg5\n- https://nvd.nist.gov/vuln/detail/CVE-2026-19534\n- https://github.com/nodejs/undici/commit/2af0faf88b906d3127a360c3ac75164c0f95e5a5\n- https://github.com/nodejs/undici/commit/6615e0175e9b635bcd2e3e87a47daa82f6f5b728\n- https://github.com/nodejs/undici/commit/66e12816064cf3068f63bd134748b7fc4e779bad\n- https://cna.openjsf.org/security-advisories.html\n- https://github.com/nodejs/undici/releases/tag/v6.28.1\n- https://github.com/nodejs/undici/releases/tag/v7.29.1\n- https://github.com/nodejs/undici/releases/tag/v8.10.2\n- https://github.com/advisories/GHSA-rfgv-xxqx-mfg5",
+      "created": "2026-09-29T18:21:33.000Z",
+      "id": 1240042,
+      "npm_advisory_id": null,
+      "overview": "### Impact\n\nThe undici WebSocket client throws an uncaught `TypeError` during the opening handshake when a server's `101` response includes a `Sec-WebSocket-Protocol` header that the client never requested. The throw occurs in a `queueMicrotask` callback with no surrounding `try`/`catch`, so it propagates as an uncaught exception and terminates the Node.js process. This is a remote, unauthenticated denial of service against any application that opens a WebSocket to an attacker controlled or compromised server, or over a plaintext `ws://` connection subject to a machine-in-the-middle. It affects the default `new WebSocket(url)` usage, where no subprotocol is requested. Per RFC 6455 section 4.1, an unrequested subprotocol must fail the connection, not crash it.\n\nAll releases starting at undici 6.7.0 are affected.\n\n### Patches\n\nUpgrade to undici 6.28.1, 7.29.1, or 8.10.2.\n\n### Workarounds\n\nNo workaround is available. The fix must be applied through an upgrade.",
+      "reported_by": null,
+      "title": "undici vulnerable to Denial of Service via unrequested WebSocket subprotocol",
+      "metadata": null,
+      "cves": ["CVE-2026-19534"],
+      "access": "public",
+      "severity": "high",
+      "module_name": "undici",
+      "vulnerable_versions": ">=6.7.0 <6.28.1",
+      "github_advisory_id": "GHSA-rfgv-xxqx-mfg5",
+      "recommendation": "Upgrade to version 6.28.1 or later",
+      "patched_versions": ">=6.28.1",
+      "updated": "2026-09-29T18:21:41.000Z",
+      "cvss": {
+        "score": 7.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": ["CWE-248", "CWE-252"],
+      "url": "https://github.com/advisories/GHSA-rfgv-xxqx-mfg5"
+    },
+    "1241209": {
+      "findings": [
+        {
+          "version": "1.2.1",
+          "paths": [
+            ". > vitest@4.1.11 > @vitest/mocker@4.1.11 > vite@6.4.3 > postcss@8.5.28 > source-map-js@1.2.1",
+            ". > vitest@4.1.11 > vite@6.4.3 > postcss@8.5.28 > source-map-js@1.2.1"
+          ]
+        }
+      ],
+      "found_by": null,
+      "deleted": null,
+      "references": "- https://nvd.nist.gov/vuln/detail/CVE-2026-93749\n- https://github.com/7rulnik/source-map-js/issues/76\n- https://github.com/7rulnik/source-map-js\n- https://github.com/7rulnik/source-map-js/blob/c1cd8904bb7bd0c7fb5879fcda48134d82a27934/lib/source-node.js#L115-L118\n- https://www.vulncheck.com/advisories/source-map-js-through-1.2.1-event-loop-denial-of-service\n- https://github.com/7rulnik/source-map-js/pull/79\n- https://github.com/7rulnik/source-map-js/commit/cf7658058ceeaa8619d5ae0ec90be6905209d016\n- https://github.com/7rulnik/source-map-js/releases/tag/v1.2.2\n- https://github.com/advisories/GHSA-68fv-2mgg-jv7q",
+      "created": "2026-09-18T18:31:44.000Z",
+      "id": 1241209,
+      "npm_advisory_id": null,
+      "overview": "source-map-js through 1.2.1 fails to validate the per-section offset line value in indexed source maps, allowing attackers to specify arbitrary numeric values. Attackers can supply extremely large offset line values that cause synchronous event loop blocking for extended periods, preventing the service from handling other requests.",
+      "reported_by": null,
+      "title": "source-map-js allows event-loop denial of service through indexed source-map section offsets",
+      "metadata": null,
+      "cves": ["CVE-2026-93749"],
+      "access": "public",
+      "severity": "high",
+      "module_name": "source-map-js",
+      "vulnerable_versions": ">=1.0.0 <1.2.2",
+      "github_advisory_id": "GHSA-68fv-2mgg-jv7q",
+      "recommendation": "Upgrade to version 1.2.2 or later",
+      "patched_versions": ">=1.2.2",
+      "updated": "2026-10-05T23:31:22.000Z",
+      "cvss": {
+        "score": 7.5,
+        "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "cwe": ["CWE-1284"],
+      "url": "https://github.com/advisories/GHSA-68fv-2mgg-jv7q"
+    }
+  },
+  "muted": [],
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 1,
+      "moderate": 1,
+      "high": 2,
+      "critical": 0
+    },
+    "dependencies": 156,
+    "devDependencies": 0,
+    "optionalDependencies": 0,
+    "totalDependencies": 156
+  }
+}

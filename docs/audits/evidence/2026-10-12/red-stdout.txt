@@ -1,0 +1,33 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ apps/cli/src/cli.test.ts (5 tests | 1 failed) 1163ms
+   × flushes the complete stdout sink through a pipe before exiting 1108ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/cli/src/cli.test.ts > flushes the complete stdout sink through a pipe before exiting
+AssertionError: expected 131072 to be 2600000 // Object.is equality
+
+- Expected
++ Received
+
+- 2600000
++ 131072
+
+ ❯ apps/cli/src/cli.test.ts:110:27
+    108|       "sink", "stdout", session.dir,
+    109|     ], {cwd: out, encoding: "utf8", maxBuffer: 4 * 1024 * 1024});
+    110|     expect(stdout.length).toBe(markdown.length);
+       |                           ^
+    111|     expect(stdout).toBe(markdown);
+    112|     expect(stderr).toContain("[ok] stdout:");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  22:16:46
+   Duration  2.14s (transform 478ms, setup 0ms, import 591ms, tests 1.16s, environment 0ms)
+

@@ -1,0 +1,1 @@
+CLI smoke passed: 17 commands; 2600000 stdout bytes preserved.

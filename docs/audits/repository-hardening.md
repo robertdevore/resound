@@ -1,5 +1,7 @@
 # Repository hardening audit — 2026-09-26
 
+Later audit: [2026-10-12 integrity and lifecycle pass](repository-hardening-2026-10-12.md).
+
 ## Repository and scope
 
 - Repository: `robertdevore/resound`; initial branch `main`, current branch

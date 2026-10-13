@@ -1,0 +1,298 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/core/src/core.test.ts (26 tests | 1 failed) 97ms
+   × requires a unique session reference instead of choosing the first match 29ms
+ ❯ packages/exporters/src/exporters.test.ts (11 tests | 6 failed) 179ms
+   × rejects conflicting output "transcript.jsonl" before changing any artifact 38ms
+   × rejects conflicting output "./transcript.jsonl" before changing any artifact 28ms
+   × rejects conflicting output "manifest.json" before changing any artifact 31ms
+   × rejects conflicting output "." before changing any artifact 18ms
+   × rejects conflicting output "" before changing any artifact 16ms
+   × rejects conflicting output "transcript.jsonl/child.md" before changing any artifact 14ms
+ ❯ apps/bot/src/session-manager.test.ts (18 tests | 1 failed) 488ms
+   × refuses recovery when a declared speaker track is missing 40ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/bot/src/session-manager.test.ts > refuses recovery when a declared speaker track is missing
+AssertionError: promise resolved "{ manifest: { …(21) }, …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "dir": "/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-bot-Lmkttc/2026-10-12/discord-complete-recovery-221049213",
++   "manifest": {
++     "audio_files": {
++       "chunks_dir": "/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-bot-Lmkttc/2026-10-12/discord-complete-recovery-221049213/audio/chunks",
++       "mixed": "/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-bot-Lmkttc/2026-10-12/discord-complete-recovery-221049213/mixed.wav",
++       "tracks": [
++         {
++           "duration_seconds": 4,
++           "path": "/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-bot-Lmkttc/2026-10-12/discord-complete-recovery-221049213/audio/chunks/1-000.chunk.txt",
++           "start_seconds": 0,
++           "user_id": "1",
++           "username": "a",
++         },
++         {
++           "duration_seconds": 4,
++           "path": "/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-bot-Lmkttc/2026-10-12/discord-complete-recovery-221049213/audio/chunks/2-000.chunk.txt",
++           "start_seconds": 5,
++           "user_id": "2",
++           "username": "b",
++         },
++       ],
++     },
++     "audio_health": [],
++     "channel_id": "c",
++     "consent_events": [
++       {
++         "note": "Recording and transcription started — announced in the control channel.",
++         "ts": "2026-10-13T02:10:49.214Z",
++         "type": "recording-announced",
++         "user_id": "1",
++         "username": "a",
++       },
++       {
++         "note": "Joined while recording/transcription was active.",
++         "ts": "2026-10-13T02:10:49.214Z",
++         "type": "participant-joined",
++         "user_id": "1",
++         "username": "a",
++       },
++       {
++         "note": "Joined while recording/transcription was active.",
++         "ts": "2026-10-13T02:10:49.214Z",
++         "type": "participant-joined",
++         "user_id": "2",
++         "username": "b",
++       },
++       {
++         "note": "Bot process stopped; use /resound recover after restart.",
++         "ts": "2026-10-13T02:10:49.218Z",
++         "type": "recording-stopped",
++         "user_id": "1",
++         "username": "a",
++       },
++     ],
++     "ended_at": "2026-10-13T02:10:49.218Z",
++     "guild_id": "g",
++     "outputs": {
++       "action_items": "action-items.md",
++       "jsonl": "transcript.jsonl",
++       "markdown": "transcript.md",
++       "srt": "transcript.srt",
++       "summary": "summary.md",
++       "vtt": "transcript.vtt",
++     },
++     "participants": [
++       {
++         "id": "1",
++         "joined_at": "2026-10-13T02:10:49.214Z",
++         "username": "a",
++       },
++       {
++         "id": "2",
++         "joined_at": "2026-10-13T02:10:49.214Z",
++         "username": "b",
++       },
++     ],
++     "recorder": {
++       "id": "mock-recorder",
++       "mode": "mock",
++     },
++     "requested_capture_mode": "mock",
++     "schema_version": "1.2.0",
++     "selected_capture_mode": "mock",
++     "session_id": "2026-10-12-221049213-discord-complete-recovery",
++     "source": "discord",
++     "started_at": "2026-10-13T02:10:49.213Z",
++     "started_by": {
++       "id": "1",
++       "username": "a",
++     },
++     "status": "completed",
++     "title": "Complete recovery",
++     "transcriber": {
++       "model": "mock-1",
++       "provider": "mock",
++     },
++     "voice_channel_id": "",
++     "warnings": [],
++   },
++   "segments": [
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:09",
++       "speaker": "a",
++       "text": "Let's review blockers first.",
++       "ts": "00:00:05",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:14",
++       "speaker": "b",
++       "text": "I pushed the migration last night, it's in review.",
++       "ts": "00:00:10",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:19",
++       "speaker": "a",
++       "text": "Great. I will ship the migration by tomorrow.",
++       "ts": "00:00:15",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:24",
++       "speaker": "b",
++       "text": "Any concerns about the release window?",
++       "ts": "00:00:20",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:29",
++       "speaker": "a",
++       "text": "We need to update the docs before we cut the tag.",
++       "ts": "00:00:25",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:34",
++       "speaker": "b",
++       "text": "Action item: I'll draft the changelog this afternoon.",
++       "ts": "00:00:30",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:39",
++       "speaker": "a",
++       "text": "Sounds good, let's regroup on Friday.",
++       "ts": "00:00:35",
++       "user_id": "1",
++     },
++   ],
+  }
+
+ ❯ apps/bot/src/session-manager.test.ts:446:34
+    444|   const restored = new SessionManager(env);
+    445|   expect(restored.restoreLatestForGuild("g")).toBe(true);
+    446|   await expect(restored.recover()).rejects.toThrow(/Audio track is mis…
+       |                                  ^
+    447|   expect(restored.canRecover).toBe(true);
+    448|   expect(readManifest(dir).audio_files.tracks).toHaveLength(2);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  packages/core/src/core.test.ts > requires a unique session reference instead of choosing the first match
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/core/src/core.test.ts:347:48
+    345|   try {
+    346|     for (const name of ["team-one", "team-two"]) writeManifest(path.jo…
+    347|     expect(() => resolveSession("team", root)).toThrow(/Ambiguous sess…
+       |                                                ^
+    348|     expect(() => resolveSession("", root)).toThrow(/empty/);
+    349|     expect(resolveSession("team-one", root)).toBe(path.join(root, "tea…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  packages/exporters/src/exporters.test.ts > rejects conflicting output "transcript.jsonl" before changing any artifact
+ FAIL  packages/exporters/src/exporters.test.ts > rejects conflicting output "./transcript.jsonl" before changing any artifact
+ FAIL  packages/exporters/src/exporters.test.ts > rejects conflicting output "manifest.json" before changing any artifact
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/exporters/src/exporters.test.ts:115:70
+    113|       const before = new Map(fs.readdirSync(dir).map(file => [file, fs…
+    114|       manifest.outputs.markdown = configured;
+    115|       expect(() => writeSessionOutputs({ manifest, segments, dir })).t…
+       |                                                                      ^
+    116|       expect(fs.readdirSync(dir).sort()).toEqual([...before.keys()].so…
+    117|       for (const [file, bytes] of before) expect(fs.readFileSync(path.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  packages/exporters/src/exporters.test.ts > rejects conflicting output "." before changing any artifact
+AssertionError: expected [Function] to throw error matching /Session output path/ but got 'EISDIR: illegal operation on a direct…'
+
+- Expected:
+/Session output path/
+
++ Received:
+"EISDIR: illegal operation on a directory, rename '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/.resound-write-k3JEfk/content' -> '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-collision-61O9FY'"
+
+ ❯ packages/exporters/src/exporters.test.ts:115:70
+    113|       const before = new Map(fs.readdirSync(dir).map(file => [file, fs…
+    114|       manifest.outputs.markdown = configured;
+    115|       expect(() => writeSessionOutputs({ manifest, segments, dir })).t…
+       |                                                                      ^
+    116|       expect(fs.readdirSync(dir).sort()).toEqual([...before.keys()].so…
+    117|       for (const [file, bytes] of before) expect(fs.readFileSync(path.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  packages/exporters/src/exporters.test.ts > rejects conflicting output "" before changing any artifact
+AssertionError: expected [Function] to throw error matching /Session output path/ but got 'EISDIR: illegal operation on a direct…'
+
+- Expected:
+/Session output path/
+
++ Received:
+"EISDIR: illegal operation on a directory, rename '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/.resound-write-P3UvpX/content' -> '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-collision-hFBXd6'"
+
+ ❯ packages/exporters/src/exporters.test.ts:115:70
+    113|       const before = new Map(fs.readdirSync(dir).map(file => [file, fs…
+    114|       manifest.outputs.markdown = configured;
+    115|       expect(() => writeSessionOutputs({ manifest, segments, dir })).t…
+       |                                                                      ^
+    116|       expect(fs.readdirSync(dir).sort()).toEqual([...before.keys()].so…
+    117|       for (const [file, bytes] of before) expect(fs.readFileSync(path.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  packages/exporters/src/exporters.test.ts > rejects conflicting output "transcript.jsonl/child.md" before changing any artifact
+AssertionError: expected [Function] to throw error matching /Session output path/ but got 'EEXIST: file already exists, mkdir \'…'
+
+- Expected:
+/Session output path/
+
++ Received:
+"EEXIST: file already exists, mkdir '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-collision-LhvQmg/transcript.jsonl'"
+
+ ❯ packages/exporters/src/exporters.test.ts:115:70
+    113|       const before = new Map(fs.readdirSync(dir).map(file => [file, fs…
+    114|       manifest.outputs.markdown = configured;
+    115|       expect(() => writeSessionOutputs({ manifest, segments, dir })).t…
+       |                                                                      ^
+    116|       expect(fs.readdirSync(dir).sort()).toEqual([...before.keys()].so…
+    117|       for (const [file, bytes] of before) expect(fs.readFileSync(path.…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  8 failed | 47 passed (55)
+   Start at  22:10:47
+   Duration  1.98s (transform 1.11s, setup 0ms, import 1.45s, tests 764ms, environment 2ms)
+

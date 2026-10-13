@@ -1,0 +1,57 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+stderr | apps/bot/src/session-manager.test.ts > waits for an in-flight stop during shutdown without retranscribing
+Promise returned by `expect(actual).rejects.toThrow(expected)` was not awaited. Vitest currently auto-awaits hanging assertions at the end of the test, but this will cause the test to fail in the next Vitest major. Please remember to await the assertion.
+    at /Users/robertdevore/2026/resound/apps/bot/src/session-manager.test.ts:491:34
+
+ ❯ apps/bot/src/session-manager.test.ts (20 tests | 2 failed) 664ms
+   × waits for an in-flight stop during shutdown without retranscribing 46ms
+   × serializes concurrent shutdowns with pending recorder startup 11ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/bot/src/session-manager.test.ts > waits for an in-flight stop during shutdown without retranscribing
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ apps/bot/src/session-manager.test.ts:493:22
+    491|   const stopped = expect(stopping).rejects.toThrow(/shutdown/);
+    492|   const shutdown = mgr.interruptForShutdown();
+    493|   expect(mgr.active).toBe(true);
+       |                      ^
+    494|   release();
+    495|   await Promise.all([shutdown, stopped]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  apps/bot/src/session-manager.test.ts > serializes concurrent shutdowns with pending recorder startup
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ apps/bot/src/session-manager.test.ts:526:17
+    524|   release();
+    525|   await Promise.all([starting, shutdown, secondShutdown]);
+    526|   expect(stops).toBe(1);
+       |                 ^
+    527|   expect(mgr.canRecover).toBe(true);
+    528|   expect(readManifest(mgr.currentPaths()!.dir).audio_files.tracks.leng…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 18 passed (20)
+   Start at  22:12:40
+   Duration  2.64s (transform 1.10s, setup 0ms, import 1.28s, tests 664ms, environment 0ms)
+
