@@ -10,7 +10,7 @@ import type { Sink, SinkResult } from "./types.js";
 export interface StrataOptions {
   /**
    * Ingest command template. The Markdown path is appended as the final arg.
-   * Defaults to STRATA_INGEST_COMMAND or "strata notes add --file".
+   * Defaults to STRATA_INGEST_COMMAND or "strata notes create --file".
    */
   command?: string;
   env?: NodeJS.ProcessEnv;
@@ -37,7 +37,7 @@ export class StrataSink implements Sink {
     const template =
       this.options.command ??
       env.STRATA_INGEST_COMMAND ??
-      "strata notes add --file";
+      "strata notes create --file";
     const mdPath = sessionPaths(session.dir, session.manifest).markdown;
 
     if (!fs.existsSync(mdPath)) {

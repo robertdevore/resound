@@ -13,31 +13,31 @@ cp .env.example .env   # without .env, Resound falls back to mock mode
 
 ## Environment variables
 
-| Variable                                    | Default                   | Purpose                                                                                    |
-| ------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------ |
-| `RESOUND_OUTPUT_DIR`                        | `./transcripts`           | Where session folders are written                                                          |
-| `RESOUND_TRANSCRIBER`                       | `mock`                    | `mock` \| `local-whisper` \| `openai-compatible` \| `openai` \| `deepgram` \| `assemblyai` |
-| `RESOUND_TRANSCRIBER_MODEL`                 | provider default          | Override the model                                                                         |
-| `RESOUND_WHISPER_COMMAND`                   | `whisper-cli`             | local-whisper binary                                                                       |
-| `RESOUND_WHISPER_FORMAT`                    | `whisper.cpp`             | `whisper.cpp` \| `openai-whisper`                                                          |
-| `RESOUND_WHISPER_MODEL`                     | —                         | local-whisper model name / ggml path                                                       |
-| `RESOUND_OPENAI_BASE_URL`                   | api.openai.com            | OpenAI-compatible endpoint base URL                                                        |
-| `RESOUND_OPENAI_API_KEY` / `OPENAI_API_KEY` | —                         | key for the compatible endpoint                                                            |
-| `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY`   | —                         | For scaffolded providers                                                                   |
-| `DISCORD_TOKEN` / `DISCORD_CLIENT_ID`       | —                         | Discord bot                                                                                |
-| `DISCORD_GUILD_ID`                          | —                         | Register slash commands to one guild (instant)                                             |
-| `RESOUND_BOT_MODE`                          | `mock`                    | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto`                        |
-| `RESOUND_DISCORD_RECEIVER_BACKEND`          | `pycord`                  | `auto` \| `pycord` \| `discordjs` for Discord-native bot receive                           |
-| `RESOUND_DISCORD_PYTHON`                    | `python3` on PATH         | Python interpreter for the Pycord sidecar                                                  |
-| `RESOUND_DISCORD_PYTHONPATH`                | —                         | Extra `PYTHONPATH` entries for the Pycord sidecar                                          |
-| `RESOUND_OPERATOR_USER_IDS`                 | —                         | Comma-separated Discord user IDs allowed to operate the bot                                |
-| `RESOUND_OPERATOR_ROLE_IDS`                 | —                         | Comma-separated Discord role IDs allowed to operate the bot                                |
-| `RESOUND_TRANSCRIPT_DELIVERY`               | `ephemeral`               | `ephemeral` \| `channel` \| `disabled`                                                     |
-| `RESOUND_AUDIO_DEVICE`                      | —                         | Single local input device for `record` / local-capture                                     |
-| `RESOUND_AUDIO_SYSTEM_DEVICE`               | —                         | Local system/call audio input, usually BlackHole                                           |
-| `RESOUND_AUDIO_MIC_DEVICE`                  | —                         | Local microphone input                                                                     |
-| `STRATA_INGEST_COMMAND`                     | `strata notes add --file` | Strata sink command                                                                        |
-| `TOTALRECALL_INGEST_COMMAND`                | `totalrecall ingest`      | TotalRecall sink command                                                                   |
+| Variable                                    | Default                      | Purpose                                                                                    |
+| ------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `RESOUND_OUTPUT_DIR`                        | `./transcripts`              | Where session folders are written                                                          |
+| `RESOUND_TRANSCRIBER`                       | `mock`                       | `mock` \| `local-whisper` \| `openai-compatible` \| `openai` \| `deepgram` \| `assemblyai` |
+| `RESOUND_TRANSCRIBER_MODEL`                 | provider default             | Override the model                                                                         |
+| `RESOUND_WHISPER_COMMAND`                   | `whisper-cli`                | local-whisper binary                                                                       |
+| `RESOUND_WHISPER_FORMAT`                    | `whisper.cpp`                | `whisper.cpp` \| `openai-whisper`                                                          |
+| `RESOUND_WHISPER_MODEL`                     | —                            | local-whisper model name / ggml path                                                       |
+| `RESOUND_OPENAI_BASE_URL`                   | api.openai.com               | OpenAI-compatible endpoint base URL                                                        |
+| `RESOUND_OPENAI_API_KEY` / `OPENAI_API_KEY` | —                            | key for the compatible endpoint                                                            |
+| `DEEPGRAM_API_KEY` / `ASSEMBLYAI_API_KEY`   | —                            | For scaffolded providers                                                                   |
+| `DISCORD_TOKEN` / `DISCORD_CLIENT_ID`       | —                            | Discord bot                                                                                |
+| `DISCORD_GUILD_ID`                          | —                            | Register slash commands to one guild (instant)                                             |
+| `RESOUND_BOT_MODE`                          | `mock`                       | `mock` \| `local-capture` \| `discord` / `discord-native` \| `auto`                        |
+| `RESOUND_DISCORD_RECEIVER_BACKEND`          | `pycord`                     | `auto` \| `pycord` \| `discordjs` for Discord-native bot receive                           |
+| `RESOUND_DISCORD_PYTHON`                    | `python3` on PATH            | Python interpreter for the Pycord sidecar                                                  |
+| `RESOUND_DISCORD_PYTHONPATH`                | —                            | Extra `PYTHONPATH` entries for the Pycord sidecar                                          |
+| `RESOUND_OPERATOR_USER_IDS`                 | —                            | Comma-separated Discord user IDs allowed to operate the bot                                |
+| `RESOUND_OPERATOR_ROLE_IDS`                 | —                            | Comma-separated Discord role IDs allowed to operate the bot                                |
+| `RESOUND_TRANSCRIPT_DELIVERY`               | `ephemeral`                  | `ephemeral` \| `channel` \| `disabled`                                                     |
+| `RESOUND_AUDIO_DEVICE`                      | —                            | Single local input device for `record` / local-capture                                     |
+| `RESOUND_AUDIO_SYSTEM_DEVICE`               | —                            | Local system/call audio input, usually BlackHole                                           |
+| `RESOUND_AUDIO_MIC_DEVICE`                  | —                            | Local microphone input                                                                     |
+| `STRATA_INGEST_COMMAND`                     | `strata notes create --file` | Strata sink command                                                                        |
+| `TOTALRECALL_INGEST_COMMAND`                | `totalrecall ingest`         | TotalRecall sink command                                                                   |
 
 ## CLI
 
@@ -216,14 +216,14 @@ does not prove BlackHole is receiving it.
 ```bash
 resound sink strata <session>
 # or set a custom command:
-STRATA_INGEST_COMMAND="strata notes add --file" resound sink strata <session>
+STRATA_INGEST_COMMAND="strata notes create --file" resound sink strata <session>
 ```
 
 If Strata is not installed the command fails gracefully and reminds you the
 Markdown is already portable. To do it by hand:
 
 ```bash
-strata notes add --file transcripts/2026-06-22/discord-engineering-standup-1432/transcript.md
+strata notes create --file transcripts/2026-06-22/discord-engineering-standup-1432/transcript.md
 ```
 
 ## TotalRecall workflow (optional)
@@ -250,3 +250,18 @@ provider.
 its success/failure receipt goes to stderr. Redirect stdout to preserve an exact
 copy. The filesystem sink retains manifest-relative subdirectories, including
 custom output paths, so copied sessions remain loadable and valid.
+
+### Session selection and output safety
+
+A session reference must identify one session. Exact paths take precedence, then
+unique folder names, IDs, and substrings. Ambiguous or empty references fail
+instead of exporting or sending an arbitrary session; supply its exact path.
+Manifest output paths must name distinct files inside the session. They cannot
+alias `manifest.json`, another output, or an output's parent directory.
+
+The default Strata sink command is `strata notes create --file`, matching the
+current Strata CLI. Existing explicit `STRATA_INGEST_COMMAND` and `--command`
+overrides are preserved. For an older Strata installation that uses `notes add`,
+set `STRATA_INGEST_COMMAND="strata notes add --file"`; when upgrading Strata,
+update that override to `notes create`. No automatic command retry occurs,
+because an ambiguous failure might already have created a note.

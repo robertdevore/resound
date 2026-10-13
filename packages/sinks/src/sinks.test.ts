@@ -119,3 +119,21 @@ it("cancels unused webhook response bodies and supplies a deadline", async () =>
   ).toBe(true);
   expect(cancel).toHaveBeenCalledOnce();
 });
+
+it("uses the current Strata CLI by default while preserving command overrides", async () => {
+  const session = tempSession();
+  const run = vi.fn().mockResolvedValue({ code: 0, stderr: "" });
+  try {
+    expect((await new StrataSink({ env: {}, run }).send(session)).ok).toBe(
+      true,
+    );
+    expect(run).toHaveBeenCalledWith("strata", [
+      "notes",
+      "create",
+      "--file",
+      path.join(session.dir, "transcript.md"),
+    ]);
+  } finally {
+    fs.rmSync(session.dir, { recursive: true, force: true });
+  }
+});
