@@ -1,4 +1,6 @@
-Latest pass: [Discord adapter ownership](repository-hardening-2026-10-13-discord.md).
+Latest pass: [audio artifact preservation](repository-hardening-2026-10-13-audio-paths.md).
+
+Previous pass: [Discord adapter ownership](repository-hardening-2026-10-13-discord.md).
 
 Previous pass: [manifest structure validation](repository-hardening-2026-10-13-manifests.md).
 

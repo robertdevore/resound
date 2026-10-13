@@ -1,0 +1,15 @@
+{
+  "input_bytes": 134217728,
+  "repetitions": 3,
+  "byte_identical": true,
+  "results": {
+    "baseline": {
+      "median_seconds": 0.43864178797230124,
+      "peak_traced_bytes": 134234838
+    },
+    "streaming": {
+      "median_seconds": 0.48339239304186776,
+      "peak_traced_bytes": 2108957
+    }
+  }
+}
