@@ -88,6 +88,7 @@ describe("Pycord process ownership", () => {
     child.event({ event: "stopped", tracks: [] });
     await vi.advanceTimersByTimeAsync(0);
     expect(settled).toBe(false);
+    expect(recorder.getHealth().status).toBe("stopping");
     child.close();
     await stopped;
     child = new Child();
