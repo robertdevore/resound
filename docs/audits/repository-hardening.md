@@ -1,3 +1,5 @@
+Latest pass: [recorder lifecycle and track timing](repository-hardening-2026-10-12-lifecycle.md).
+
 Third audit after PR #14: [2026-10-12 transcript boundaries](repository-hardening-2026-10-12-boundaries.md).
 
 Repeat audit after PR #13: [2026-10-12 repeat pass](repository-hardening-2026-10-12-repeat.md).
