@@ -285,7 +285,7 @@ export class PycordDiscordRecorder implements Recorder {
     });
     // close follows stdout drainage; exit can precede the final stopped event.
     child.on("close", (code, signal) => {
-      if (this.status !== "idle" && this.status !== "failed") {
+      if (!this.stopped && this.status !== "idle" && this.status !== "failed") {
         let detail: string;
         try {
           detail = diagnosticPreview(this.stderrLogPath!).slice(-500);
@@ -456,7 +456,11 @@ export class PycordDiscordRecorder implements Recorder {
     }
     if (event.event === "stopped") {
       this.stopped = event;
-      this.status = event.warnings?.length ? "warning" : "idle";
+      this.status = this.stopping
+        ? "stopping"
+        : event.warnings?.length
+          ? "warning"
+          : "idle";
     }
     const match = this.pending.find((entry) => entry.predicate(event));
     if (!match) return;
