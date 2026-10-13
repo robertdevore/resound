@@ -111,3 +111,9 @@ a meeting capture until both lines show `audio detected`.
 4. Run `/resound stop`.
 5. Confirm both capture-health lines are green and the reply reports transcript
    segments, then confirm both statements appear in the attached transcript.
+
+The system recorder owns one ffmpeg process at a time. A second start is rejected
+until the previous capture has been stopped. Concurrent or repeated stop calls
+share the same result, including a finalization error. Failed ffmpeg exits appear
+as failed recorder health; pause/resume cannot act on a stopped process. Startup
+failures release ownership after the child closes, allowing a fresh attempt.
