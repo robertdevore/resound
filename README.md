@@ -2,17 +2,19 @@
 
 [![Release](https://img.shields.io/github/v/release/robertdevore/resound)](https://github.com/robertdevore/resound/releases) [![CI](https://github.com/robertdevore/resound/actions/workflows/ci.yml/badge.svg)](https://github.com/robertdevore/resound/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-Resound turns voice conversations into portable local memory. It records or imports audio, transcribes with local Whisper or an OpenAI-compatible provider, and writes files you own: Markdown, JSONL, VTT, SRT, summaries, action items, and a consent-aware manifest.
+Resound records or imports audio and turns it into transcripts you keep on your own machine. Use local Whisper or an OpenAI-compatible provider. Each session contains Markdown, JSONL, VTT, SRT, summaries, action items, and a manifest with consent events.
 
-No hosted service, dashboard, or database is required. Strata and TotalRecall are optional sinks.
+No hosted service, dashboard, or database is required. You can send completed sessions to Strata, TotalRecall, a webhook, or another folder.
+
+Current release: [v1.0.2](https://github.com/robertdevore/resound/releases/tag/v1.0.2). See the [changelog](CHANGELOG.md) for recording, recovery, and storage fixes.
 
 ## Quick start
 
-Requirements: Node.js 20, 22, or 24 and pnpm 9 through 11.
+Requirements: Node.js 20, 22, or 24. The repository pins pnpm 9.15.0; pnpm 9 through 11 are supported.
 
 ```bash
 corepack enable
-pnpm install
+pnpm install --frozen-lockfile
 pnpm build
 pnpm test
 pnpm cli mock "Engineering Standup"
@@ -63,12 +65,11 @@ Run `pnpm cli --help` for all flags.
 
 ## Discord bot
 
-The `/resound` bot is designed to run on your own Linux server, VPS, NAS, or
+The `/resound` bot runs on your own Linux server, VPS, NAS, or
 local machine. It joins Discord voice through a DAVE-aware receiver, records
 separate speaker tracks, transcribes them, and keeps the artifacts on your host.
-No ReSound-hosted service is involved.
 
-The safest first run uses mock audio. Copy the environment template, add your
+Start with mock audio to check the setup. Copy the environment template, add your
 Discord token and application ID, then:
 
 ```bash
@@ -86,6 +87,17 @@ and an end-to-end acceptance check.
 Only members with **Manage Server** or an explicit configured operator user/role
 can start sessions. The session owner and operators control recording. Transcript
 downloads are ephemeral by default; public channel delivery is opt-in.
+
+## Storage and recovery
+
+Resound retains audio when transcription or export fails. Recorder shutdown waits
+for capture to finish, and recovery requires every declared speaker track.
+Exports replace files atomically, one file at a time; they are not a multi-file
+transaction. Configured transcript paths cannot overwrite retained audio.
+
+Run the [self-hosting acceptance check](docs/self-hosting.md) before recording
+real meetings. Offline tests cannot verify your Discord permissions, audio
+devices, models, or remote provider.
 
 ## Architecture
 
