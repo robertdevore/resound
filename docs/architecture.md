@@ -99,3 +99,10 @@ or recorder selection can become stale. Status and consent remain available.
 The bot publishes its recording notice before starting capture; failure to publish
 prevents capture. The notice is an announcement policy, not capture-time opt-in
 filtering of individual participants.
+
+Shutdown waits for an in-flight recorder operation, finalizes audio once, and
+leaves it recoverable. A pending stop does not begin transcription after shutdown
+starts; late provider results cannot overwrite the interrupted state. Recovery
+requires all declared speaker tracks, retaining mixed-only recovery for older
+manifests. Restore missing audio before retrying; a mixed track does not silently
+replace an incomplete speaker roster.

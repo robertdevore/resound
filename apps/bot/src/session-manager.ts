@@ -90,7 +90,10 @@ export class SessionManager {
   private dir?: string;
   private state: SessionState = "idle";
   private recorder?: Recorder;
-  private controlPending = false;
+  private captureOperation?: Promise<unknown>;
+  private shutdown?: Promise<void>;
+  private shuttingDown = false;
+
   private lastCaptureReport: string[] = [];
   private readonly mode: "mock" | "discord-native" | "local-capture" | "auto";
   private readonly makeTranscriber: () => Transcriber;
@@ -117,6 +120,26 @@ export class SessionManager {
         this.mode === "mock"
           ? getTranscriber({ name: "mock", env: this.env })
           : getTranscriber({ env: this.env }));
+  }
+
+  private trackCapture<T>(action: () => Promise<T>): Promise<T> {
+    if (this.captureOperation)
+      return Promise.reject(
+        new Error("A recorder control operation is in progress."),
+      );
+    const operation = action().finally(() => {
+      if (this.captureOperation === operation)
+        this.captureOperation = undefined;
+    });
+    this.captureOperation = operation;
+    return operation;
+  }
+
+  private assertRunning(): void {
+    if (this.shuttingDown)
+      throw new Error(
+        "Session interrupted for shutdown; recover after restart.",
+      );
   }
 
   get active(): boolean {
@@ -257,16 +280,24 @@ export class SessionManager {
 
   private storedAudioChunks(): AudioChunk[] {
     if (!this.manifest) return [];
-    const tracks = this.manifest.audio_files.tracks
-      .map((track) => ({
-        userId: track.user_id,
-        username: track.username,
-        path: track.path,
-        startSeconds: track.start_seconds,
-        durationSeconds: track.duration_seconds,
-      }))
-      .filter((track) => fs.existsSync(track.path));
-    if (tracks.length > 0) return tracks;
+    const tracks = this.manifest.audio_files.tracks.map((track) => ({
+      userId: track.user_id,
+      username: track.username,
+      path: track.path,
+      startSeconds: track.start_seconds,
+      durationSeconds: track.duration_seconds,
+    }));
+    // A partial roster is not a successful recovery, even if mixed audio exists.
+    for (const track of tracks.filter((track) => track.userId !== "mixed")) {
+      if (!fs.existsSync(track.path)) {
+        throw new Error(
+          `Audio track is missing: ${track.path}. Restore it before retrying recovery.`,
+        );
+      }
+    }
+    if (tracks.some((track) => track.userId !== "mixed")) return tracks;
+    if (tracks.length > 0 && tracks.every((track) => fs.existsSync(track.path)))
+      return tracks;
     const mixed = this.manifest.audio_files.mixed;
     return mixed && fs.existsSync(mixed)
       ? [
@@ -286,11 +317,21 @@ export class SessionManager {
     ctx: SessionContext,
     recorderOverride?: Recorder,
   ): Promise<{ dir: string; announce: string }> {
+    this.assertRunning();
     if (this.active)
       throw new Error(
         "A session is already in progress. Use /resound stop first.",
       );
+    return this.trackCapture(() =>
+      this.startSession(title, ctx, recorderOverride),
+    );
+  }
 
+  private async startSession(
+    title: string,
+    ctx: SessionContext,
+    recorderOverride?: Recorder,
+  ): Promise<{ dir: string; announce: string }> {
     const participants = [
       ctx.startedBy,
       ...(ctx.initialParticipants ?? []).filter(
@@ -433,36 +474,32 @@ export class SessionManager {
   }
 
   async pause(): Promise<string> {
+    this.assertRunning();
+    return this.trackCapture(() => this.pauseCapture());
+  }
+
+  private async pauseCapture(): Promise<string> {
     if (this.state !== "recording") throw new Error("Nothing is recording.");
     if (!this.recorder?.capabilities.pauseResume || !this.recorder.pause) {
       throw new Error("The active recorder does not support pausing.");
     }
-    if (this.controlPending)
-      throw new Error("A recorder control operation is in progress.");
-    this.controlPending = true;
-    try {
-      await this.recorder.pause();
-      this.transition("paused", "recording-degraded");
-    } finally {
-      this.controlPending = false;
-    }
+    await this.recorder.pause();
+    this.transition("paused", "recording-degraded");
     return "⏸️ Recording paused.";
   }
 
   async resume(): Promise<string> {
+    this.assertRunning();
+    return this.trackCapture(() => this.resumeCapture());
+  }
+
+  private async resumeCapture(): Promise<string> {
     if (this.state !== "paused") throw new Error("Session is not paused.");
     if (!this.recorder?.capabilities.pauseResume || !this.recorder.resume) {
       throw new Error("The active recorder does not support resuming.");
     }
-    if (this.controlPending)
-      throw new Error("A recorder control operation is in progress.");
-    this.controlPending = true;
-    try {
-      await this.recorder.resume();
-      this.transition("recording", "recording");
-    } finally {
-      this.controlPending = false;
-    }
+    await this.recorder.resume();
+    this.transition("recording", "recording");
     return "▶️ Recording resumed.";
   }
 
@@ -502,6 +539,7 @@ export class SessionManager {
         mock: this.mode === "mock",
         onProgress,
       });
+      this.assertRunning();
       this.manifest.status = "transcribed";
       const session: TranscriptSession = {
         manifest: this.manifest,
@@ -525,6 +563,17 @@ export class SessionManager {
   async stop(
     onProgress?: (progress: TranscriptionProgress) => void,
   ): Promise<TranscriptSession> {
+    this.assertRunning();
+    if (this.captureOperation)
+      throw new Error(
+        "No active session is ready to stop; a recorder control operation is in progress.",
+      );
+    const chunks = await this.trackCapture(() => this.finalizeCapture());
+    this.assertRunning();
+    return this.transcribeAndExport(chunks, onProgress);
+  }
+
+  private async finalizeCapture(): Promise<AudioChunk[]> {
     if (
       !this.manifest ||
       !this.dir ||
@@ -532,8 +581,6 @@ export class SessionManager {
       !["recording", "paused"].includes(this.state)
     )
       throw new Error("No active session is ready to stop.");
-    if (this.controlPending)
-      throw new Error("A recorder control operation is in progress.");
     const recorder = this.recorder;
     this.transition("audio-finalizing", "audio-finalizing");
     let chunks: AudioChunk[];
@@ -561,13 +608,14 @@ export class SessionManager {
         "No audio was captured. Check the configured devices and audio routing, then try again.",
       );
     }
-    return this.transcribeAndExport(chunks, onProgress);
+    return chunks;
   }
 
   /** Retry transcription/export for a durable interrupted session. */
   async recover(
     onProgress?: (progress: TranscriptionProgress) => void,
   ): Promise<TranscriptSession> {
+    this.assertRunning();
     if (!this.manifest || !this.dir || this.state !== "recoverable") {
       throw new Error("No recoverable session is available.");
     }
@@ -581,15 +629,24 @@ export class SessionManager {
   }
 
   /** Finalize audio on SIGINT/SIGTERM without starting a long transcription. */
-  async interruptForShutdown(): Promise<void> {
+  interruptForShutdown(): Promise<void> {
+    this.shuttingDown = true;
+    this.shutdown ??= this.finalizeForShutdown();
+    return this.shutdown;
+  }
+
+  private async finalizeForShutdown(): Promise<void> {
+    // Startup, pause/resume and stop may already own the recorder. Let that
+    // operation settle before finalizing; never stop twice or lose its audio.
+    try {
+      await this.captureOperation;
+    } catch {
+      // The operation records its own failure; shutdown still reconciles state.
+    }
     if (!this.manifest || !this.dir || !this.active) return;
-    const recorder = this.recorder;
-    if (recorder && ["recording", "paused"].includes(this.state)) {
+    if (this.recorder && ["recording", "paused"].includes(this.state)) {
       try {
-        const chunks = await recorder.stop();
-        this.lastCaptureReport = (await recorder.captureSummary?.()) ?? [];
-        this.manifest.audio_health = [...this.lastCaptureReport];
-        this.persistCapturedAudio(chunks);
+        await this.trackCapture(() => this.finalizeCapture());
       } catch (error) {
         this.manifest.warnings.push(
           `Graceful shutdown could not finalize audio: ${(error as Error).message}`,

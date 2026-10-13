@@ -421,3 +421,194 @@ describe("session lifecycle integrity", () => {
     expect(mgr.ownerId).toBe("new");
   });
 });
+
+it("refuses recovery when a declared speaker track is missing", async () => {
+  const { writeManifest } = await import("@resound/core");
+  const env = envFor();
+  const first = new SessionManager(env);
+  await first.start("Complete recovery", {
+    guildId: "g",
+    channelId: "c",
+    startedBy: { id: "1", username: "a" },
+    initialParticipants: [{ id: "2", username: "b" }],
+  });
+  await first.interruptForShutdown();
+  const dir = first.currentPaths()!.dir;
+  const manifest = readManifest(dir);
+  const missing = manifest.audio_files.tracks[1]!.path;
+  fs.unlinkSync(missing);
+  // A valid mixed file must not silently replace incomplete speaker tracks either.
+  const mixed = path.join(dir, "mixed.wav");
+  fs.writeFileSync(mixed, "synthetic");
+  manifest.audio_files.mixed = mixed;
+  writeManifest(dir, manifest);
+  const restored = new SessionManager(env);
+  expect(restored.restoreLatestForGuild("g")).toBe(true);
+  await expect(restored.recover()).rejects.toThrow(/Audio track is missing/);
+  expect(restored.canRecover).toBe(true);
+  expect(readManifest(dir).audio_files.tracks).toHaveLength(2);
+  fs.writeFileSync(missing, "restored synthetic track");
+  expect((await restored.recover()).manifest.status).toBe("completed");
+  fs.rmSync(env.RESOUND_OUTPUT_DIR!, { recursive: true, force: true });
+});
+
+it("retains mixed-only recovery for older manifests", async () => {
+  const { writeManifest } = await import("@resound/core");
+  const env = envFor();
+  const first = new SessionManager(env);
+  await first.start("Legacy recovery", {
+    guildId: "g",
+    channelId: "c",
+    startedBy: { id: "1", username: "a" },
+  });
+  await first.interruptForShutdown();
+  const dir = first.currentPaths()!.dir;
+  const manifest = readManifest(dir);
+  manifest.audio_files.tracks = [];
+  writeManifest(dir, manifest);
+  const restored = new SessionManager(env);
+  restored.restoreLatestForGuild("g");
+  expect((await restored.recover()).manifest.status).toBe("completed");
+  fs.rmSync(env.RESOUND_OUTPUT_DIR!, { recursive: true, force: true });
+});
+
+it("waits for an in-flight stop during shutdown without retranscribing", async () => {
+  const { MockRecorder } = await import("@resound/audio");
+  let release!: () => void;
+  let stops = 0;
+  let transcriptions = 0;
+  const recorder = new MockRecorder();
+  const originalStop = recorder.stop.bind(recorder);
+  recorder.stop = async () => {
+    stops++;
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return originalStop();
+  };
+  const env = envFor();
+  const mgr = new SessionManager(
+    env,
+    () => recorder,
+    () => ({
+      provider: "test",
+      model: "test",
+      capabilities: {
+        local: true,
+        remote: false,
+        segmentTimestamps: true,
+        speakerAware: true,
+        wordTimestamps: false,
+        contextualPrompting: false,
+        confidence: false,
+        retrySafe: true,
+        privacy: "local-only",
+      },
+      async transcribe() {
+        transcriptions++;
+        return [];
+      },
+    }),
+  );
+  await mgr.start("Shutdown", {
+    guildId: "g",
+    channelId: "c",
+    startedBy: { id: "1", username: "a" },
+  });
+  const stopping = mgr.stop();
+  const stopped = expect(stopping).rejects.toThrow(/shutdown/);
+  const shutdown = mgr.interruptForShutdown();
+  expect(mgr.active).toBe(true);
+  release();
+  await Promise.all([shutdown, stopped]);
+  expect(stops).toBe(1);
+  expect(transcriptions).toBe(0);
+  expect(mgr.canRecover).toBe(true);
+  expect(
+    readManifest(mgr.currentPaths()!.dir).audio_files.tracks.length,
+  ).toBeGreaterThan(0);
+  await expect(
+    mgr.start("Too late", {
+      guildId: "g",
+      channelId: "c",
+      startedBy: { id: "1", username: "a" },
+    }),
+  ).rejects.toThrow(/shutdown/);
+  fs.rmSync(env.RESOUND_OUTPUT_DIR!, { recursive: true, force: true });
+});
+
+it("serializes concurrent shutdowns with pending recorder startup", async () => {
+  const { MockRecorder } = await import("@resound/audio");
+  let release!: () => void;
+  let entered!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  let stops = 0;
+  const recorder = new MockRecorder();
+  const originalStart = recorder.start.bind(recorder);
+  const originalStop = recorder.stop.bind(recorder);
+  recorder.start = async (options) => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+      entered();
+    });
+    await originalStart(options);
+  };
+  recorder.stop = async () => {
+    stops++;
+    return originalStop();
+  };
+  const env = envFor();
+  const mgr = new SessionManager(env, () => recorder);
+  const starting = mgr.start("Shutdown startup", {
+    guildId: "g",
+    channelId: "c",
+    startedBy: { id: "1", username: "a" },
+  });
+  await ready;
+  const shutdown = mgr.interruptForShutdown();
+  const secondShutdown = mgr.interruptForShutdown();
+  release();
+  await Promise.all([starting, shutdown, secondShutdown]);
+  expect(stops).toBe(1);
+  expect(mgr.canRecover).toBe(true);
+  expect(
+    readManifest(mgr.currentPaths()!.dir).audio_files.tracks.length,
+  ).toBeGreaterThan(0);
+  fs.rmSync(env.RESOUND_OUTPUT_DIR!, { recursive: true, force: true });
+});
+
+it("does not let a late provider result overwrite shutdown recovery", async () => {
+  const { MockTranscriber } = await import("@resound/transcribers");
+  let release!: () => void;
+  let entered!: () => void;
+  const enteredTranscriber = new Promise<void>((resolve) => {
+    entered = resolve;
+  });
+  const transcriber = new MockTranscriber();
+  transcriber.transcribe = async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+      entered();
+    });
+    return [];
+  };
+  const env = envFor();
+  const mgr = new SessionManager(env, undefined, () => transcriber);
+  await mgr.start("Late result", {
+    guildId: "g",
+    channelId: "c",
+    startedBy: { id: "1", username: "a" },
+  });
+  const stopping = mgr.stop();
+  const stopped = expect(stopping).rejects.toThrow(/shutdown/);
+  await enteredTranscriber;
+  await mgr.interruptForShutdown();
+  release();
+  await stopped;
+  expect(mgr.canRecover).toBe(true);
+  expect(readManifest(mgr.currentPaths()!.dir).status).toBe("recoverable");
+  expect(fs.existsSync(mgr.currentPaths()!.jsonl)).toBe(false);
+  fs.rmSync(env.RESOUND_OUTPUT_DIR!, { recursive: true, force: true });
+});
