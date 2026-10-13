@@ -1,9 +1,5 @@
 import fs from "node:fs";
-import {
-  formatTimestamp,
-  type Participant,
-  type TranscriptSegment,
-} from "@resound/core";
+import { formatTimestamp, type TranscriptSegment } from "@resound/core";
 import type { TranscriptionInput, TranscriptionTrack } from "./types.js";
 
 export interface RawSegment {
@@ -24,6 +20,13 @@ export function selectEffectiveTracks(
     (track) => track.userId !== "mixed",
   );
   for (const track of tracks) {
+    for (const field of ["startSeconds", "durationSeconds"] as const) {
+      if (!Number.isFinite(track[field]) || track[field] < 0) {
+        throw new Error(
+          `Audio track ${field} must be a finite nonnegative number.`,
+        );
+      }
+    }
     if (!fs.existsSync(track.path))
       throw new Error(`Audio track is missing: ${track.path}`);
   }
@@ -48,14 +51,28 @@ export function mapRawSegmentsToSpeakerSegments(
   const offset = speaker.startSeconds ?? 0;
   return raw
     .filter((segment) => segment.text.trim().length > 0)
-    .map((segment) => ({
-      ts: formatTimestamp(segment.start + offset),
-      end_ts: formatTimestamp(segment.end + offset),
-      speaker: speaker.username,
-      user_id: speaker.userId,
-      text: segment.text.trim(),
-      confidence: segment.confidence ?? 0,
-    }));
+    .map((segment) => {
+      const start = segment.start + offset;
+      const end = segment.end + offset;
+      if (
+        !Number.isFinite(start) ||
+        !Number.isFinite(end) ||
+        start < 0 ||
+        end < 0
+      ) {
+        throw new Error(
+          "Audio track timestamp is outside the supported range.",
+        );
+      }
+      return {
+        ts: formatTimestamp(start),
+        end_ts: formatTimestamp(end),
+        speaker: speaker.username,
+        user_id: speaker.userId,
+        text: segment.text.trim(),
+        confidence: segment.confidence ?? 0,
+      };
+    });
 }
 
 export function defaultSpeaker(input: TranscriptionInput): {
