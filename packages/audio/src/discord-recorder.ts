@@ -78,6 +78,7 @@ export class DiscordRecorder implements Recorder {
   private readonly resolveUsername: (userId: string) => string;
   private readonly silenceMs: number;
   private readonly loadDependencies: () => Promise<VoiceDeps>;
+  private startup?: object;
   private chunks: AudioChunk[] = [];
   private chunkDir = "";
   private startedAt = 0;
@@ -135,15 +136,30 @@ export class DiscordRecorder implements Recorder {
   }
 
   async start(options: RecorderStartOptions): Promise<void> {
-    if (this.status !== "idle")
+    if (this.status !== "idle" || this.startup)
       throw new Error("Discord recorder is already running.");
+    const startup = {};
+    this.startup = startup;
+    this.chunks = [];
+    try {
+      await this.startCapture(options, startup);
+    } finally {
+      if (this.startup === startup) this.startup = undefined;
+    }
+  }
+
+  private async startCapture(
+    options: RecorderStartOptions,
+    startup: object,
+  ): Promise<void> {
     const { EndBehaviorType, opusDecoderStream } =
       await this.loadDependencies();
+    if (this.startup !== startup)
+      throw new Error("Discord recorder stopped during startup.");
     const paths = sessionPaths(options.sessionDir);
     fs.mkdirSync(paths.audioChunks, { recursive: true, mode: 0o700 });
     this.chunkDir = paths.audioChunks;
     this.startedAt = Date.now();
-    this.chunks = [];
     this.counters.clear();
     this.failure = undefined;
     this.status = "recording";
@@ -152,14 +168,17 @@ export class DiscordRecorder implements Recorder {
       if (this.speakingListener !== listener || this.status !== "recording")
         return;
       if (this.active.has(userId)) return;
+      let input: NodeJS.ReadableStream | undefined;
+      let output: NodeJS.ReadWriteStream | undefined;
+      let cleanup: (() => void) | undefined;
       try {
-        const opusStream = this.connection.receiver.subscribe(userId, {
+        const opusStream = (input = this.connection.receiver.subscribe(userId, {
           end: {
             behavior: EndBehaviorType.AfterSilence,
             duration: this.silenceMs,
           },
-        });
-        const decoder = opusDecoderStream();
+        }));
+        const decoder = (output = opusDecoderStream());
         // 30 seconds of stereo s16le; continuous speech never grows this buffer.
         const limit = FORMAT.sampleRate * FORMAT.channels * 2 * 30;
         let pcm: Buffer[] = [];
@@ -179,12 +198,8 @@ export class DiscordRecorder implements Recorder {
           disposed = true;
           this.active.delete(userId);
           opusStream.unpipe(decoder);
-          (
-            opusStream as NodeJS.ReadableStream & { destroy?(): void }
-          ).destroy?.();
-          (
-            decoder as NodeJS.ReadWriteStream & { destroy?(): void }
-          ).destroy?.();
+          destroyStream(opusStream);
+          destroyStream(decoder);
           flush();
         };
         const fail = (error: Error) => {
@@ -196,6 +211,7 @@ export class DiscordRecorder implements Recorder {
             this.failure ??= error as Error;
           }
         };
+        cleanup = dispose;
         this.active.set(userId, { flush, dispose });
         decoder.on("data", (data: Buffer) => {
           if (disposed || this.status !== "recording") return;
@@ -224,8 +240,17 @@ export class DiscordRecorder implements Recorder {
         opusStream.on("error", fail);
         opusStream.pipe(decoder);
       } catch (error) {
-        this.failure = error as Error;
+        this.failure ??= error as Error;
         this.status = "failed";
+        try {
+          if (cleanup) cleanup();
+          else {
+            destroyStream(input);
+            destroyStream(output);
+          }
+        } catch {
+          // Preserve the setup failure; stop still reports it.
+        }
       }
     };
     this.speakingListener = listener;
@@ -236,7 +261,13 @@ export class DiscordRecorder implements Recorder {
     if (this.status !== "recording")
       throw new Error("Discord recorder is not recording.");
     this.status = "paused";
-    for (const stream of this.active.values()) stream.flush();
+    try {
+      for (const stream of this.active.values()) stream.flush();
+    } catch (error) {
+      this.failure ??= error as Error;
+      this.status = "failed";
+      throw error;
+    }
   }
 
   resume(): void {
@@ -264,6 +295,7 @@ export class DiscordRecorder implements Recorder {
   }
 
   async stop(): Promise<AudioChunk[]> {
+    this.startup = undefined;
     this.status = "stopping";
     if (this.speakingListener) {
       this.connection.receiver.speaking.off?.("start", this.speakingListener);
@@ -295,7 +327,9 @@ export class DiscordRecorder implements Recorder {
             ? "Discord-native capture running."
             : this.status === "stopping"
               ? "Discord-native capture finalizing buffered chunks."
-              : "Discord-native capture idle.",
+              : this.status === "failed"
+                ? "Discord-native capture failed."
+                : "Discord-native capture idle.",
       warnings: this.capabilities.warnings ?? [],
       metrics: {
         activeSpeakers: this.active.size,
@@ -303,6 +337,12 @@ export class DiscordRecorder implements Recorder {
       },
     };
   }
+}
+
+function destroyStream(stream?: NodeJS.ReadableStream): void {
+  (
+    stream as (NodeJS.ReadableStream & { destroy?(): void }) | undefined
+  )?.destroy?.();
 }
 
 export interface VoiceDeps {

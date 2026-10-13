@@ -117,3 +117,14 @@ until the previous capture has been stopped. Concurrent or repeated stop calls
 share the same result, including a finalization error. Failed ffmpeg exits appear
 as failed recorder health; pause/resume cannot act on a stopped process. Startup
 failures release ownership after the child closes, allowing a fresh attempt.
+
+The Pycord adapter rejects overlapping starts and shares concurrent stop outcomes.
+A stop is complete only after the sidecar process closes, including after it emits
+its final track list. The idle finalization deadline still applies during process
+shutdown; termination escalates to SIGKILL after two seconds and waits for close.
+
+The optional JavaScript Discord adapter reserves asynchronous startup and cancels
+late activation when stopped during dependency loading. Decoder setup failures
+release the subscription, and a failed pause flush remains a finalization error.
+These lifecycle guarantees do not establish live DAVE receive support for that
+optional adapter; Pycord remains the supported Discord receiver.
