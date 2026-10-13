@@ -1,3 +1,5 @@
+Repeat audit after PR #13: [2026-10-12 repeat pass](repository-hardening-2026-10-12-repeat.md).
+
 # Repository hardening audit — 2026-09-26
 
 Later audit: [2026-10-12 integrity and lifecycle pass](repository-hardening-2026-10-12.md).

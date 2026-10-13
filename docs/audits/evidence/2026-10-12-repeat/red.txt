@@ -1,0 +1,366 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/transcribers/src/transcribers.test.ts (17 tests | 2 failed) 133ms
+   × validates the supplied environment HTTP deadline for openai 12ms
+   × validates the supplied environment HTTP deadline for openai-compatible 2ms
+ ❯ apps/cli/src/cli.test.ts (9 tests | 5 failed) 997ms
+     × produces a complete, valid, portable session 46ms
+     × marks successful sessions completed and declares the retained audio 21ms
+     × persists consent and retained audio when transcription fails 13ms
+     × fails visibly on copy errors instead of transcribing a partial destination 30ms
+     × rejects directories before reserving a session 23ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/cli/src/cli.test.ts > createMockSession > produces a complete, valid, portable session
+AssertionError: expected 'created' to be 'completed' // Object.is equality
+
+Expected: "completed"
+Received: "created"
+
+ ❯ apps/cli/src/cli.test.ts:41:38
+     39|     const reloaded = loadSession(session.dir);
+     40|     expect(reloaded.segments.length).toBe(session.segments.length);
+     41|     expect(reloaded.manifest.status).toBe("completed");
+       |                                      ^
+     42|     expect(validateSession(session.dir).valid).toBe(true);
+     43|     expect(runChecks(session.dir).every((c) => c.pass)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  apps/cli/src/cli.test.ts > file session durability > marks successful sessions completed and declares the retained audio
+AssertionError: expected 'created' to be 'completed' // Object.is equality
+
+Expected: "completed"
+Received: "created"
+
+ ❯ apps/cli/src/cli.test.ts:150:29
+    148|     const session = await createFileSession({ title: "Durable", audioF…
+    149|     const manifest = readManifest(session.dir);
+    150|     expect(manifest.status).toBe("completed");
+       |                             ^
+    151|     expect(manifest.audio_files.mixed).toBe(path.join(session.dir, "au…
+    152|     expect(fs.readFileSync(manifest.audio_files.mixed!, "utf8")).toBe(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  apps/cli/src/cli.test.ts > file session durability > persists consent and retained audio when transcription fails
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ apps/cli/src/cli.test.ts:160:22
+    158|     await expect(createFileSession({ title: "Failure", audioFile: audi…
+    159|     const sessions = listSessions(out);
+    160|     expect(sessions).toHaveLength(1);
+       |                      ^
+    161|     const manifest = readManifest(sessions[0]!);
+    162|     expect(manifest.status).toBe("failed");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  apps/cli/src/cli.test.ts > file session durability > fails visibly on copy errors instead of transcribing a partial destination
+AssertionError: promise resolved "{ manifest: { …(21) }, …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "dir": "/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-file-durable-JJE2Oc/2026-10-12/file-copy-failure-224856222",
++   "manifest": {
++     "audio_files": {
++       "tracks": [],
++     },
++     "audio_health": [],
++     "channel_id": "",
++     "consent_events": [
++       {
++         "note": "Transcribing pre-recorded audio: meeting.wav. Operator attests recording consent was obtained.",
++         "ts": "2026-10-13T02:48:56.222Z",
++         "type": "recording-announced",
++         "user_id": "operator",
++         "username": "operator",
++       },
++       {
++         "note": "Transcription complete.",
++         "ts": "2026-10-13T02:48:56.224Z",
++         "type": "recording-stopped",
++         "user_id": "operator",
++         "username": "operator",
++       },
++     ],
++     "ended_at": "2026-10-13T02:48:56.224Z",
++     "guild_id": "",
++     "outputs": {
++       "action_items": "action-items.md",
++       "jsonl": "transcript.jsonl",
++       "markdown": "transcript.md",
++       "srt": "transcript.srt",
++       "summary": "summary.md",
++       "vtt": "transcript.vtt",
++     },
++     "participants": [],
++     "recorder": {
++       "id": "",
++       "mode": "mock",
++     },
++     "requested_capture_mode": "mock",
++     "schema_version": "1.2.0",
++     "selected_capture_mode": "",
++     "session_id": "2026-10-12-224856222-file-copy-failure",
++     "source": "file",
++     "started_at": "2026-10-13T02:48:56.222Z",
++     "started_by": {
++       "id": "",
++       "username": "",
++     },
++     "status": "created",
++     "title": "Copy failure",
++     "transcriber": {
++       "model": "mock-1",
++       "profile": undefined,
++       "provider": "mock",
++     },
++     "voice_channel_id": "",
++     "warnings": [],
++   },
++   "segments": [
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:09",
++       "speaker": "Robert",
++       "text": "Let's review blockers first.",
++       "ts": "00:00:05",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:14",
++       "speaker": "Ashley",
++       "text": "I pushed the migration last night, it's in review.",
++       "ts": "00:00:10",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:19",
++       "speaker": "Robert",
++       "text": "Great. I will ship the migration by tomorrow.",
++       "ts": "00:00:15",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:24",
++       "speaker": "Ashley",
++       "text": "Any concerns about the release window?",
++       "ts": "00:00:20",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:29",
++       "speaker": "Robert",
++       "text": "We need to update the docs before we cut the tag.",
++       "ts": "00:00:25",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:34",
++       "speaker": "Ashley",
++       "text": "Action item: I'll draft the changelog this afternoon.",
++       "ts": "00:00:30",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:39",
++       "speaker": "Robert",
++       "text": "Sounds good, let's regroup on Friday.",
++       "ts": "00:00:35",
++       "user_id": "1",
++     },
++   ],
+  }
+
+ ❯ apps/cli/src/cli.test.ts:174:85
+    172|       throw new Error("synthetic disk full");
+    173|     });
+    174|     await expect(createFileSession({ title: "Copy failure", audioFile:…
+       |                                                                                     ^
+    175|     const sessions = listSessions(out);
+    176|     expect(sessions).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  apps/cli/src/cli.test.ts > file session durability > rejects directories before reserving a session
+AssertionError: promise resolved "{ manifest: { …(21) }, …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- Error {
+-   "message": "rejected promise",
++ {
++   "dir": "/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-file-durable-msgQMc/2026-10-12/file-directory-224856251",
++   "manifest": {
++     "audio_files": {
++       "tracks": [],
++     },
++     "audio_health": [],
++     "channel_id": "",
++     "consent_events": [
++       {
++         "note": "Transcribing pre-recorded audio: resound-file-durable-msgQMc. Operator attests recording consent was obtained.",
++         "ts": "2026-10-13T02:48:56.251Z",
++         "type": "recording-announced",
++         "user_id": "operator",
++         "username": "operator",
++       },
++       {
++         "note": "Transcription complete.",
++         "ts": "2026-10-13T02:48:56.254Z",
++         "type": "recording-stopped",
++         "user_id": "operator",
++         "username": "operator",
++       },
++     ],
++     "ended_at": "2026-10-13T02:48:56.254Z",
++     "guild_id": "",
++     "outputs": {
++       "action_items": "action-items.md",
++       "jsonl": "transcript.jsonl",
++       "markdown": "transcript.md",
++       "srt": "transcript.srt",
++       "summary": "summary.md",
++       "vtt": "transcript.vtt",
++     },
++     "participants": [],
++     "recorder": {
++       "id": "",
++       "mode": "mock",
++     },
++     "requested_capture_mode": "mock",
++     "schema_version": "1.2.0",
++     "selected_capture_mode": "",
++     "session_id": "2026-10-12-224856251-file-directory",
++     "source": "file",
++     "started_at": "2026-10-13T02:48:56.251Z",
++     "started_by": {
++       "id": "",
++       "username": "",
++     },
++     "status": "created",
++     "title": "Directory",
++     "transcriber": {
++       "model": "mock-1",
++       "profile": undefined,
++       "provider": "mock",
++     },
++     "voice_channel_id": "",
++     "warnings": [],
++   },
++   "segments": [
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:09",
++       "speaker": "Robert",
++       "text": "Let's review blockers first.",
++       "ts": "00:00:05",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:14",
++       "speaker": "Ashley",
++       "text": "I pushed the migration last night, it's in review.",
++       "ts": "00:00:10",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:19",
++       "speaker": "Robert",
++       "text": "Great. I will ship the migration by tomorrow.",
++       "ts": "00:00:15",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:24",
++       "speaker": "Ashley",
++       "text": "Any concerns about the release window?",
++       "ts": "00:00:20",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:29",
++       "speaker": "Robert",
++       "text": "We need to update the docs before we cut the tag.",
++       "ts": "00:00:25",
++       "user_id": "1",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:34",
++       "speaker": "Ashley",
++       "text": "Action item: I'll draft the changelog this afternoon.",
++       "ts": "00:00:30",
++       "user_id": "2",
++     },
++     {
++       "confidence": 0.9,
++       "end_ts": "00:00:39",
++       "speaker": "Robert",
++       "text": "Sounds good, let's regroup on Friday.",
++       "ts": "00:00:35",
++       "user_id": "1",
++     },
++   ],
+  }
+
+ ❯ apps/cli/src/cli.test.ts:185:80
+    183|   it("rejects directories before reserving a session", async () => {
+    184|     const { out, env } = fixture();
+    185|     await expect(createFileSession({ title: "Directory", audioFile: ou…
+       |                                                                                ^
+    186|     expect(listSessions(out)).toEqual([]);
+    187|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  packages/transcribers/src/transcribers.test.ts > validates the supplied environment HTTP deadline for openai
+ FAIL  packages/transcribers/src/transcribers.test.ts > validates the supplied environment HTTP deadline for openai-compatible
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/transcribers/src/transcribers.test.ts:332:9
+    330|     RESOUND_OPENAI_BASE_URL: "http://127.0.0.1:1",
+    331|     RESOUND_HTTP_TIMEOUT_MS: "invalid",
+    332|   } })).toThrow(/positive integer/);
+       |         ^
+    333| });
+    334|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 19 passed (26)
+   Start at  22:48:54
+   Duration  2.16s (transform 802ms, setup 0ms, import 1.00s, tests 1.13s, environment 1ms)
+
