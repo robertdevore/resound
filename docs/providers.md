@@ -279,3 +279,9 @@ numbers; omitted optional timestamps retain their zero defaults. Remote
 Malformed output fails with a field-specific diagnostic instead of completing
 with an empty or coerced transcript. Audio remains available through the existing
 failure/recovery flow. Resound does not automatically retry provider calls.
+
+Speaker-track offsets and durations must be finite, nonnegative numbers. Local
+Whisper and OpenAI-compatible transcription validate all selected speaker tracks
+before launching a command or uploading any audio. Invalid timing fails explicitly
+instead of producing a misleading timeline; timestamp addition overflow also
+fails. Fractional offsets and zero duration remain supported.
