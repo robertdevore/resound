@@ -133,3 +133,87 @@ it.each([
     }
   },
 );
+
+it.each([
+  "audio/raw/source.wav",
+  "audio/chunks/track.wav",
+  "audio/raw",
+  "audio",
+])(
+  "rejects output %s overlapping retained audio before writing",
+  (configured) => {
+    const { manifest, segments } = fixture();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-audio-export-"));
+    try {
+      writeSessionOutputs({ manifest, segments, dir });
+      const canonical = fs.readFileSync(path.join(dir, "transcript.jsonl"));
+      const audio = path.join(dir, "audio/raw/source.wav");
+      fs.mkdirSync(path.dirname(audio), { recursive: true });
+      fs.writeFileSync(audio, "synthetic retained audio");
+      manifest.outputs.jsonl = configured;
+      expect(() => writeSessionOutputs({ manifest, segments, dir })).toThrow(
+        /Session output path/,
+      );
+      expect(fs.readFileSync(audio, "utf8")).toBe("synthetic retained audio");
+      expect(fs.readFileSync(path.join(dir, "transcript.jsonl"))).toEqual(
+        canonical,
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+it.each(["mixed", "system", "microphone", "chunks_dir", "track"] as const)(
+  "preserves declared %s audio outside standard recording directories",
+  (field) => {
+    const { manifest, segments } = fixture();
+    const dir = fs.mkdtempSync(
+      path.join(os.tmpdir(), "resound-declared-audio-"),
+    );
+    try {
+      const audio = path.join(dir, "legacy.wav");
+      fs.writeFileSync(audio, "synthetic legacy audio");
+      if (field === "track") {
+        manifest.audio_files.tracks = [
+          {
+            user_id: "1",
+            username: "A",
+            path: path.relative(process.cwd(), audio),
+            start_seconds: 0,
+            duration_seconds: 1,
+          },
+        ];
+      } else {
+        manifest.audio_files[field] = audio;
+      }
+      manifest.outputs.markdown = "legacy.wav";
+      expect(() => writeSessionOutputs({ manifest, segments, dir })).toThrow(
+        /Session output path/,
+      );
+      expect(fs.readFileSync(audio, "utf8")).toBe("synthetic legacy audio");
+      expect(fs.readdirSync(dir)).toEqual(["legacy.wav"]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+it("allows distinct nested exports alongside declared audio", () => {
+  const { manifest, segments } = fixture();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-distinct-"));
+  try {
+    manifest.audio_files.mixed = path.join(dir, "legacy.wav");
+    manifest.outputs.markdown = "exports/legacy.wav.md";
+    fs.writeFileSync(manifest.audio_files.mixed, "synthetic audio");
+    writeSessionOutputs({ manifest, segments, dir });
+    expect(fs.readFileSync(manifest.audio_files.mixed, "utf8")).toBe(
+      "synthetic audio",
+    );
+    expect(
+      fs.readFileSync(path.join(dir, manifest.outputs.markdown), "utf8"),
+    ).toContain("Engineering Standup");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

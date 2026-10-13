@@ -28,7 +28,29 @@ export function sessionPaths(
 ): SessionPaths {
   const outputs = manifest?.outputs;
   const resolvedDir = path.resolve(dir);
-  const reserved = [path.join(resolvedDir, "manifest.json")];
+  // Exports must never replace recording inputs or occupy their directories.
+  // Audio paths in manifests use the recorder's cwd-relative/absolute contract,
+  // whereas output paths are relative to the session directory.
+  const audio = manifest?.audio_files;
+  const declaredAudio = [
+    audio?.mixed,
+    audio?.system,
+    audio?.microphone,
+    audio?.chunks_dir,
+    ...(Array.isArray(audio?.tracks)
+      ? audio.tracks.map((track) => track?.path)
+      : []),
+  ];
+  const reserved = [
+    path.join(resolvedDir, "manifest.json"),
+    path.join(resolvedDir, "audio", "raw"),
+    path.join(resolvedDir, "audio", "chunks"),
+    ...declaredAudio
+      .filter(
+        (file): file is string => typeof file === "string" && file.length > 0,
+      )
+      .map((file) => path.resolve(file)),
+  ];
   const outputPath = (
     configured: string | undefined,
     fallback: string,
