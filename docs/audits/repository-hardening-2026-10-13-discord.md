@@ -2,7 +2,7 @@
 
 - Branch: `codex/discord-ownership-audit`.
 - Starting SHA: `f1387bc3c970a091d85ab682e6a8ecb253ce29ae`, clean main after PR17.
-- Ending implementation SHA: `e453ea3d9b53b9e47a223ee370bd538361304862`. The following documentation commit records the evidence.
+- Ending implementation SHA: `0d3c593aaa70bd72e229659f1881432982c483a5`. The following documentation commit records the evidence.
 - Purpose: repeat the attached audit, fix remaining reproduced failures and preserve public contracts.
 - Integrations: Discord.js and pinned Pycord/DAVE receiver; optional JavaScript voice adapter; ffmpeg, local Whisper, optional compatible HTTP transcription and downstream sinks. Version1.0.1/schema1.2.0 unchanged.
 
@@ -32,6 +32,10 @@ subprocess tests.
 | Stop returned on a stopped event and abort released ownership on exit, before close/stdout drainage. A late close could interfere with reuse; pending readiness could survive a closed process. | Keep a close promise; finalization includes close under the idle deadline; termination waits for close after SIGTERM/SIGKILL escalation; close rejects remaining waiters. | Tests separate stopped/exit/close, exercise restart, stop-before-ready, repeated failure, and a process that reports stopped but stays alive. Existing deadline/progress tests pass. | Stop completion now guarantees child close. Healthy protocol and progress-based timeout refresh stay supported; timeout still rejects and cleanup owns the child through close.     |
 | Optional JavaScript Discord adapter checked idle before awaiting dependency loading, allowing duplicate startup or capture activation after stop.                                               | `discord-recorder.ts`: reserve startup identity before await; stop invalidates it; stale completion cannot install a speaking listener.                                   | Deferred-loader races reproduce duplicate startup and late activation; dependency-failure retry stays supported.                                                                     | No new state enum or public API. Valid startup unchanged; cancelled startup rejects explicitly.                                                                                     |
 | Decoder construction could leak its subscription; pause flush failure was thrown but forgotten, allowing stop success. Failed health summaries also said idle.                                  | Track partially acquired streams and dispose on setup failure; retain pause error and failed state; report failed health for both adapters.                               | Synthetic decoder throw destroys input; injected disk failure remains a stop rejection. Existing pause byte-exclusion and bounded chunk tests pass.                                  | Errors remain visible; no silent recovery or loss of required audio is described as success. Pycord remains supported default; optional adapter live DAVE readiness is not claimed. |
+
+Final review also keeps Pycord health at `stopping` until close, including after
+the final track-list event. The close-ordering test asserts that state. The full
+suite and CLI smoke were rerun after this correction.
 
 Recording docs describe the lifecycle contract. Existing CI runs all new tests;
 no arbitrary sleeps, timeout increases, new dependencies, retries or background
