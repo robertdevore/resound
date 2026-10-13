@@ -125,6 +125,21 @@ Limitations to know:
 -c copy part-%03d.m4a`) and transcribe each part, or use a provider without
   that limit.
 
+File transcription requires a regular source file and a successful private copy
+under the new session's `audio/raw` directory. Copy errors stop the operation;
+Resound does not silently transcribe the original or an incomplete copy. Consent
+and progress are saved before provider calls. The manifest declares the retained
+copy in `audio_files.mixed`, and successful file and mock sessions end with
+`status: completed`.
+
+If copying, transcription, or exporting fails, the session remains discoverable
+with `status: failed` and a diagnostic warning when the filesystem is writable.
+Retained audio is not deleted. After correcting the cause, explicitly run
+`resound transcribe <retained-audio-file>` to create a new session. If canonical
+JSONL already exists after an export failure, `resound export <session> --format
+all` can regenerate projections; it does not rewrite the failed lifecycle status.
+No remote request is automatically retried.
+
 ## Discord Workflow
 
 There are four bot modes:

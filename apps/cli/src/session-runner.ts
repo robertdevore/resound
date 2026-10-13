@@ -8,7 +8,9 @@ import {
   recordConsentEvent,
   reserveSessionDirectory,
   sessionPaths,
+  writeManifest,
   type TranscriptSession,
+  type SessionManifest,
 } from "@resound/core";
 import { MockRecorder } from "@resound/audio";
 import { getTranscriber } from "@resound/transcribers";
@@ -72,29 +74,37 @@ export async function createMockSession(
     manifest,
   );
 
-  const recorder = new MockRecorder({ participants });
-  await recorder.start({ sessionDir: dir });
-  const chunks = await recorder.stop();
+  writeManifest(dir, manifest);
+  try {
+    const recorder = new MockRecorder({ participants });
+    await recorder.start({ sessionDir: dir });
+    const chunks = await recorder.stop();
 
-  const segments = await transcriber.transcribe({
-    sessionDir: dir,
-    participants: manifest.participants,
-    audioTracks: chunks,
-    audioPath: chunks[0]?.path,
-    mock: true,
-  });
+    const segments = await transcriber.transcribe({
+      sessionDir: dir,
+      participants: manifest.participants,
+      audioTracks: chunks,
+      audioPath: chunks[0]?.path,
+      mock: true,
+    });
 
-  manifest.ended_at = new Date(at.getTime() + 60_000).toISOString();
-  recordConsentEvent(manifest, {
-    type: "recording-stopped",
-    user_id: "bot",
-    username: "resound",
-    note: "Recording stopped.",
-  });
+    manifest.ended_at = new Date(at.getTime() + 60_000).toISOString();
+    recordConsentEvent(manifest, {
+      type: "recording-stopped",
+      user_id: "bot",
+      username: "resound",
+      note: "Recording stopped.",
+    });
 
-  const session: TranscriptSession = { manifest, segments, dir };
-  writeSessionOutputs(session);
-  return session;
+    const session: TranscriptSession = { manifest, segments, dir };
+    manifest.status = "exporting";
+    writeSessionOutputs(session);
+    manifest.status = "completed";
+    writeManifest(dir, manifest);
+    return session;
+  } catch (error) {
+    return failSession(dir, manifest, error);
+  }
 }
 
 export interface FileSessionOptions {
@@ -123,6 +133,12 @@ export async function createFileSession(
 
   if (!fs.existsSync(options.audioFile)) {
     throw new Error(`Audio file not found: ${options.audioFile}`);
+  }
+
+  if (!fs.statSync(options.audioFile).isFile()) {
+    throw new Error(
+      `Audio source must be a regular file: ${options.audioFile}`,
+    );
   }
 
   const transcriber = getTranscriber({ name: options.provider, env });
@@ -158,34 +174,69 @@ export async function createFileSession(
     ),
     manifest,
   );
-  // Reference the source audio inside the session for provenance.
-  const paths = sessionPaths(dir);
-  fs.mkdirSync(paths.audioRaw, { recursive: true });
-  const audioCopy = path.join(paths.audioRaw, path.basename(options.audioFile));
+  // Persist consent before any copy or provider side effect so failures remain
+  // discoverable. Only declare audio after the complete copy has succeeded.
+  writeManifest(dir, manifest);
   try {
+    const paths = sessionPaths(dir);
+    fs.mkdirSync(paths.audioRaw, { recursive: true, mode: 0o700 });
+    const audioCopy = path.join(
+      paths.audioRaw,
+      path.basename(options.audioFile),
+    );
     fs.copyFileSync(options.audioFile, audioCopy);
-  } catch {
-    /* large file or permission issue — transcription still proceeds from source */
+    fs.chmodSync(audioCopy, 0o600);
+    manifest.audio_files.mixed = audioCopy;
+    manifest.status = "transcribing";
+    writeManifest(dir, manifest);
+
+    const segments = await transcriber.transcribe({
+      sessionDir: dir,
+      audioPath: audioCopy,
+      participants: manifest.participants,
+      language: options.language,
+    });
+
+    manifest.ended_at = new Date().toISOString();
+    recordConsentEvent(manifest, {
+      type: "recording-stopped",
+      user_id: "operator",
+      username: "operator",
+      note: "Transcription complete.",
+    });
+
+    const session: TranscriptSession = { manifest, segments, dir };
+    manifest.status = "exporting";
+    writeManifest(dir, manifest);
+    writeSessionOutputs(session);
+    manifest.status = "completed";
+    writeManifest(dir, manifest);
+    return session;
+  } catch (error) {
+    return failSession(dir, manifest, error);
   }
+}
 
-  const segments = await transcriber.transcribe({
-    sessionDir: dir,
-    audioPath: fs.existsSync(audioCopy) ? audioCopy : options.audioFile,
-    participants: manifest.participants,
-    language: options.language,
-  });
-
+/** Preserve the original failure, including when saving its state also fails. */
+function failSession(
+  dir: string,
+  manifest: SessionManifest,
+  error: unknown,
+): never {
+  manifest.status = "failed";
   manifest.ended_at = new Date().toISOString();
-  recordConsentEvent(manifest, {
-    type: "recording-stopped",
-    user_id: "operator",
-    username: "operator",
-    note: "Transcription complete.",
-  });
-
-  const session: TranscriptSession = { manifest, segments, dir };
-  writeSessionOutputs(session);
-  return session;
+  manifest.warnings.push(
+    `Session transcription or export failed: ${error instanceof Error ? error.message : String(error)}`,
+  );
+  try {
+    writeManifest(dir, manifest);
+  } catch (persistError) {
+    throw new AggregateError(
+      [error, persistError],
+      `Session failed and its failure state could not be saved in ${dir}.`,
+    );
+  }
+  throw error;
 }
 
 /** Parse a comma-separated name list into synthetic participants. */
