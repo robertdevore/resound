@@ -279,3 +279,82 @@ it("allows ongoing finalization work beyond the idle deadline", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("rejects invalid sidecar deadlines before launching capture", async () => {
+  for (const invalid of [0, -1, NaN, Infinity, 2147483648]) {
+    const recorder = new PycordDiscordRecorder({
+      token: "synthetic",
+      guildId: "1",
+      channelId: "2",
+      pythonPath: "/not/a/python",
+      stopTimeoutMs: invalid,
+    });
+    await expect(recorder.start({ sessionDir: "/unused" })).rejects.toThrow(
+      /timeout must be a positive integer/,
+    );
+  }
+});
+
+it("reports a closed sidecar command pipe without an uncaught error", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-closed-pipe-"));
+  const driver = path.join(dir, "closed.mjs");
+  const launcher = path.join(dir, "python");
+  fs.writeFileSync(
+    driver,
+    `import fs from 'node:fs'; fs.closeSync(0); console.log(JSON.stringify({event:'ready',dave:true,dave_receive:true})); setInterval(()=>{},1000);`,
+  );
+  fs.writeFileSync(
+    launcher,
+    `#!/bin/sh\nexec "${process.execPath}" "${driver}"\n`,
+    { mode: 0o700 },
+  );
+  const recorder = new PycordDiscordRecorder({
+    token: "synthetic",
+    guildId: "1",
+    channelId: "2",
+    pythonPath: launcher,
+    startupTimeoutMs: 10000,
+    stopTimeoutMs: 500,
+  });
+  try {
+    await recorder.start({ sessionDir: dir });
+    await expect(recorder.stop()).rejects.toThrow(/command pipe/);
+    expect(recorder.getHealth().status).toBe("failed");
+  } finally {
+    await recorder.abort();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("retains large sidecar diagnostics with a bounded unexpected-exit message", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-sidecar-log-"));
+  const driver = path.join(dir, "failure.mjs");
+  const launcher = path.join(dir, "python");
+  fs.writeFileSync(
+    driver,
+    `import fs from 'node:fs'; fs.writeSync(2, 'x'.repeat(1024*1024)+'END_OF_LOG'); process.exitCode=7;`,
+  );
+  fs.writeFileSync(
+    launcher,
+    `#!/bin/sh\nexec "${process.execPath}" "${driver}"\n`,
+    { mode: 0o700 },
+  );
+  const recorder = new PycordDiscordRecorder({
+    token: "synthetic",
+    guildId: "1",
+    channelId: "2",
+    pythonPath: launcher,
+    startupTimeoutMs: 10000,
+  });
+  try {
+    await expect(recorder.start({ sessionDir: dir })).rejects.toThrow(
+      /exited unexpectedly.*END_OF_LOG.*See/s,
+    );
+    const log = path.join(dir, "audio/raw/pycord-sidecar.stderr.log");
+    expect(fs.statSync(log).size).toBe(1024 * 1024 + 10);
+    expect(fs.statSync(log).mode & 0o077).toBe(0);
+  } finally {
+    await recorder.abort();
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -258,3 +258,9 @@ for speaker WAVs, mixed PCM/WAV and a 64 MiB margin. Disk exhaustion or the WAV
 best-effort reserve, not a filesystem quota: concurrent applications can consume
 the free space after a check. Production deployments should use volume quotas
 and monitor retention. No old recordings are automatically deleted.
+
+The sidecar validates startup and stop deadlines before launching capture.
+A broken stdin command pipe rejects capture rather than crashing the bot with an
+unhandled stream error. Sidecar stderr writes directly to the private adjacent
+log file, keeping per-chunk disk writes off the bot event loop; unexpected exits
+return a short tail and the full diagnostic path.

@@ -2,6 +2,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
+import { deadlineMs, diagnosticPreview } from "@resound/core";
 import { fileURLToPath } from "node:url";
 import type {
   AudioChunk,
@@ -112,11 +113,11 @@ export class PycordDiscordRecorder implements Recorder {
   private lines?: readline.Interface;
   private status: RecordingHealth["status"] = "idle";
   private stopped?: SidecarStoppedEvent;
-  private stderrTail = "";
   private stderrLogPath?: string;
   private terminalError?: Error;
   private progressTimer?: NodeJS.Timeout;
   private progressBytes = 0;
+  private stopTimeoutMs = 15_000;
   private pending: Array<{
     predicate: (event: SidecarEvent) => boolean;
     resolve: (event: SidecarEvent) => void;
@@ -210,49 +211,62 @@ export class PycordDiscordRecorder implements Recorder {
   }
 
   async start(options: RecorderStartOptions): Promise<void> {
-    const python =
-      this.options.pythonPath ??
-      process.env.RESOUND_DISCORD_PYTHON ??
-      "python3";
-    const child = spawn(
-      python,
-      [
-        scriptPath(),
-        "--guild-id",
-        this.options.guildId,
-        "--channel-id",
-        this.options.channelId,
-        "--session-dir",
-        options.sessionDir,
-      ],
-      {
-        stdio: ["pipe", "pipe", "pipe"],
-        env: sidecarEnv(this.options.token, this.options.pythonPathEntries),
-      },
+    const startupTimeoutMs = deadlineMs(this.options.startupTimeoutMs, 20_000);
+    this.stopTimeoutMs = deadlineMs(
+      this.options.stopTimeoutMs ?? process.env.RESOUND_SIDECAR_STOP_TIMEOUT_MS,
+      15_000,
     );
-    this.child = child;
-    this.lines = readline.createInterface({ input: child.stdout! });
-    this.pending = [];
-    this.status = "recording";
-    this.stopped = undefined;
-    this.stderrTail = "";
+    // Prepare diagnostics before spawning: a filesystem failure must not orphan capture.
     this.stderrLogPath = path.join(
       options.sessionDir,
       "audio",
       "raw",
       "pycord-sidecar.stderr.log",
     );
-    this.terminalError = undefined;
-    fs.mkdirSync(path.dirname(this.stderrLogPath), { recursive: true });
-    fs.writeFileSync(this.stderrLogPath, "", "utf8");
-
-    child.stderr?.on("data", (chunk) => {
-      const text = String(chunk);
-      this.stderrTail = (this.stderrTail + text).slice(-4000);
-      if (this.stderrLogPath) {
-        fs.appendFileSync(this.stderrLogPath, text, "utf8");
-      }
+    fs.mkdirSync(path.dirname(this.stderrLogPath), {
+      recursive: true,
+      mode: 0o700,
     });
+    const python =
+      this.options.pythonPath ??
+      process.env.RESOUND_DISCORD_PYTHON ??
+      "python3";
+    const stderrFd = fs.openSync(this.stderrLogPath, "w", 0o600);
+    let child: ChildProcess;
+    try {
+      child = spawn(
+        python,
+        [
+          scriptPath(),
+          "--guild-id",
+          this.options.guildId,
+          "--channel-id",
+          this.options.channelId,
+          "--session-dir",
+          options.sessionDir,
+        ],
+        {
+          stdio: ["pipe", "pipe", stderrFd],
+          env: sidecarEnv(this.options.token, this.options.pythonPathEntries),
+        },
+      );
+    } finally {
+      fs.closeSync(stderrFd);
+    }
+    this.child = child;
+    this.lines = readline.createInterface({ input: child.stdout! });
+    this.pending = [];
+    this.status = "recording";
+    this.stopped = undefined;
+    this.terminalError = undefined;
+    child.stdin?.on("error", (error) => {
+      this.terminalError = new Error(
+        `Pycord sidecar command pipe failed: ${error.message}`,
+      );
+      this.status = "failed";
+      this.failPending(this.terminalError);
+    });
+
     this.lines.on("line", (line) => this.handleLine(line));
     child.on("error", (err) => {
       this.terminalError = err;
@@ -262,8 +276,14 @@ export class PycordDiscordRecorder implements Recorder {
     // close follows stdout drainage; exit can precede the final stopped event.
     child.on("close", (code, signal) => {
       if (this.status !== "idle" && this.status !== "failed") {
+        let detail: string;
+        try {
+          detail = diagnosticPreview(this.stderrLogPath!).slice(-500);
+        } catch (error) {
+          detail = `Cannot read sidecar diagnostics: ${(error as Error).message}`;
+        }
         const error = new Error(
-          `Pycord sidecar exited unexpectedly (${code ?? signal}). ${this.stderrTail.slice(0, 500)}${this.stderrLogPath ? ` See ${this.stderrLogPath}.` : ""}`,
+          `Pycord sidecar exited unexpectedly (${code ?? signal}). ${detail} See ${this.stderrLogPath}.`,
         );
         this.terminalError = error;
         this.status = this.stopped ? "warning" : "failed";
@@ -280,7 +300,7 @@ export class PycordDiscordRecorder implements Recorder {
           reject(
             new Error("Pycord sidecar did not become ready before timeout."),
           );
-        }, this.options.startupTimeoutMs ?? 20_000);
+        }, startupTimeoutMs);
         this.waitForEvent(
           (event): event is SidecarReadyEvent => event.event === "ready",
         )
@@ -306,6 +326,10 @@ export class PycordDiscordRecorder implements Recorder {
         (a, b) => a.startSeconds - b.startSeconds,
       );
     }
+    if (this.terminalError) {
+      await this.terminateSidecar();
+      throw this.terminalError;
+    }
     if (!this.child) {
       throw (
         this.terminalError ??
@@ -319,9 +343,7 @@ export class PycordDiscordRecorder implements Recorder {
     );
     this.child.stdin?.write("stop\n");
     this.child.stdin?.end();
-    const timeoutMs =
-      this.options.stopTimeoutMs ??
-      Number(process.env.RESOUND_SIDECAR_STOP_TIMEOUT_MS ?? 15_000);
+    const timeoutMs = this.stopTimeoutMs;
     let timer: NodeJS.Timeout | undefined;
     try {
       const stopped = await Promise.race([
