@@ -1,12 +1,8 @@
+import { parseProviderJson } from "./provider-json.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import {
-  runCommand,
-  deadlineMs,
-  formatTimestamp,
-  type TranscriptSegment,
-} from "@resound/core";
+import { runCommand, deadlineMs, type TranscriptSegment } from "@resound/core";
 import type {
   Transcriber,
   TranscriptionInput,
@@ -37,35 +33,12 @@ export type WhisperFormat = "whisper.cpp" | "openai-whisper";
 
 /** Parse whisper.cpp full JSON (offsets are milliseconds). */
 export function parseWhisperCppJson(json: string): RawSegment[] {
-  const data = JSON.parse(json) as {
-    transcription?: {
-      offsets?: { from?: number; to?: number };
-      text?: string;
-    }[];
-  };
-  const rows = data.transcription ?? [];
-  return rows.map((r) => ({
-    start: (r.offsets?.from ?? 0) / 1000,
-    end: (r.offsets?.to ?? 0) / 1000,
-    text: (r.text ?? "").trim(),
-  }));
+  return parseProviderJson(JSON.parse(json), "whisper.cpp");
 }
 
 /** Parse the OpenAI/openai-whisper Python CLI JSON (start/end in seconds). */
 export function parseOpenAiWhisperJson(json: string): RawSegment[] {
-  const data = JSON.parse(json) as {
-    segments?: { start?: number; end?: number; text?: string }[];
-    text?: string;
-  };
-  const rows = data.segments ?? [];
-  if (rows.length === 0 && data.text) {
-    return [{ start: 0, end: 0, text: data.text.trim() }];
-  }
-  return rows.map((r) => ({
-    start: r.start ?? 0,
-    end: r.end ?? 0,
-    text: (r.text ?? "").trim(),
-  }));
+  return parseProviderJson(JSON.parse(json), "openai");
 }
 
 export interface LocalWhisperOptions {
