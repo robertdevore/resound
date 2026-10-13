@@ -290,3 +290,11 @@ Filesystem delivery stages each artifact privately beside its destination, then
 renames it into place. A failed copy preserves that artifact's previous contents
 and cleans its staging directory. The manifest is copied last. This is atomic
 per file, not a multi-file transaction or a guarantee against power loss.
+
+Manifest validation also checks declared scalar types, nested recorder/provider
+metadata, participant and consent row structure, string warning/health entries,
+and finite nonnegative audio-track timing. Malformed rows produce indexed field
+errors from `resound validate`, rather than passing validation and failing later
+in a consumer. Custom source names and extension fields remain accepted; older
+schema versions still produce a warning, and legacy manifests may omit tracks.
+This is structural validation, not proof that a recording or consent event occurred.

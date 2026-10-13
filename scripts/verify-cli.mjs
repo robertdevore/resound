@@ -50,6 +50,13 @@ try {
   const copy = path.join(directory, "copy");
   run(["sink", "filesystem", session, "--dest", copy]);
   run(["validate", path.join(copy, path.basename(session))]);
+  const manifestFile = path.join(session, "manifest.json");
+  const originalManifest = fs.readFileSync(manifestFile, "utf8");
+  const malformedManifest = JSON.parse(originalManifest);
+  malformedManifest.participants = [null];
+  fs.writeFileSync(manifestFile, JSON.stringify(malformedManifest));
+  assert.match(run(["validate", session], 1).stderr, /participants\[0\]/);
+  fs.writeFileSync(manifestFile, originalManifest);
   const markdown = "synthetic transcript line\n".repeat(100_000);
   fs.writeFileSync(path.join(session, "transcript.md"), markdown);
   const piped = run(["sink", "stdout", session]);
