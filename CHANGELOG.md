@@ -2,6 +2,32 @@
 
 All notable changes to Resound are documented here.
 
+## [1.0.2] - 2026-10-13
+
+### Fixed
+
+- Preserve recorder ownership until child processes close; reject overlapping starts and share repeated stop results.
+- Correct Discord speaker alignment and keep long recordings responsive during finalization.
+- Serialize bot shutdown and session operations; require every declared speaker track during recovery.
+- Reserve unique session directories and replace exports and delivered artifacts atomically per file.
+- Reject output paths that overlap retained audio, conflicting artifacts, and ambiguous session references.
+- Save consent and failure state when file imports or transcription fail.
+- Reject malformed provider responses, manifest fields, transcript timestamps, and audio-track timing.
+- Preserve large piped transcripts and honor deadlines from explicitly supplied environments.
+- Align the optional Strata sink with the current CLI.
+
+### Changed
+
+- Bound subprocess and HTTP lifetimes, stream diagnostic logs, upload tracks sequentially, and convert PCM to WAV in bounded reads.
+- Add regression coverage for storage, shutdown, recorder ownership, provider failures, and recovery.
+
+### Security
+
+- Update vulnerable JavaScript dependencies and restrict the Docker build context.
+- Keep private artifacts and diagnostic files owner-accessible; preserve audio on failed exports.
+
+Manifest schema 1.2.0, CLI flags, configuration keys, and provider interfaces remain compatible. Invalid or destructive inputs now fail explicitly. Live receiver, device, and provider acceptance still depends on the host setup.
+
 ## [1.0.1] - 2026-08-29
 
 ### Changed
@@ -88,3 +114,4 @@ voice transcription with portable session artifacts.
 [0.2.0]: https://github.com/robertdevore/resound/releases/tag/v0.2.0
 [1.0.0]: https://github.com/robertdevore/resound/releases/tag/v1.0.0
 [1.0.1]: https://github.com/robertdevore/resound/releases/tag/v1.0.1
+[1.0.2]: https://github.com/robertdevore/resound/releases/tag/v1.0.2
