@@ -215,7 +215,9 @@ Local Whisper runs have a 30-minute deadline per track. Set
 or long recordings. Binary preflight is limited to 30 seconds. Remote uploads
 use a file-backed Blob, one track at a time, with a 10-minute deadline including
 response consumption; configure `RESOUND_HTTP_TIMEOUT_MS` or the transcriber's
-`timeoutMs` option. Deadline values must be positive integer milliseconds.
+`timeoutMs` option. Provider resolution uses `RESOUND_HTTP_TIMEOUT_MS` from the
+explicitly supplied `env` object, or the process environment when `env` is omitted.
+Deadline values must be positive integer milliseconds.
 No automatic retry occurs after a timeout: the remote server may have processed
 the request already.
 

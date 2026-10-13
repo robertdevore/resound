@@ -322,3 +322,19 @@ describe("remote track resource and failure boundaries", () => {
     ).rejects.toThrow(/Audio track is missing/);
   });
 });
+
+it.each(["openai", "openai-compatible"])(
+  "validates the supplied environment HTTP deadline for %s",
+  (name) => {
+    expect(() =>
+      getTranscriber({
+        name,
+        env: {
+          RESOUND_OPENAI_API_KEY: "synthetic",
+          RESOUND_OPENAI_BASE_URL: "http://127.0.0.1:1",
+          RESOUND_HTTP_TIMEOUT_MS: "invalid",
+        },
+      }),
+    ).toThrow(/positive integer/);
+  },
+);

@@ -1,3 +1,4 @@
+import { deadlineMs } from "@resound/core";
 import { LocalWhisperTranscriber } from "./local-whisper.js";
 import { MockTranscriber } from "./mock.js";
 import { OpenAICompatibleTranscriber, OpenAITranscriber } from "./openai.js";
@@ -55,6 +56,7 @@ export function getTranscriber(options: ResolveOptions = {}): Transcriber {
         apiKey,
         model,
         baseUrl: env.RESOUND_OPENAI_BASE_URL,
+        timeoutMs: deadlineMs(env.RESOUND_HTTP_TIMEOUT_MS, 600_000),
       });
     }
 
@@ -67,7 +69,12 @@ export function getTranscriber(options: ResolveOptions = {}): Transcriber {
       }
       // Many local compatible servers accept any/no token.
       const apiKey = openAiKey(env) || "sk-no-key-required";
-      return new OpenAICompatibleTranscriber({ apiKey, model, baseUrl });
+      return new OpenAICompatibleTranscriber({
+        apiKey,
+        model,
+        baseUrl,
+        timeoutMs: deadlineMs(env.RESOUND_HTTP_TIMEOUT_MS, 600_000),
+      });
     }
 
     case "deepgram":

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { OpenAICompatibleTranscriber } from "./openai.js";
+import { getTranscriber } from "./index.js";
 
 const servers: http.Server[] = [];
 const directories: string[] = [];
@@ -73,3 +74,23 @@ it("preserves large provider errors on disk with bounded error output", async ()
     directories.push(path.dirname(file));
   }
 });
+
+it.each(["openai", "openai-compatible"])(
+  "applies the supplied HTTP deadline through the %s factory",
+  async (name) => {
+    const input = await setup((_req, res) => {
+      res.writeHead(200);
+      res.write('{"text":"');
+    });
+    await expect(
+      getTranscriber({
+        name,
+        env: {
+          RESOUND_OPENAI_API_KEY: "synthetic",
+          RESOUND_OPENAI_BASE_URL: input.baseUrl,
+          RESOUND_HTTP_TIMEOUT_MS: "100",
+        },
+      }).transcribe(input),
+    ).rejects.toThrow(/abort|timeout/i);
+  },
+);
