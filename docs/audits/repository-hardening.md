@@ -1,6 +1,8 @@
-Latest pass: [manifest structure validation](repository-hardening-2026-10-13-manifests.md).
+Latest pass: [Discord adapter ownership](repository-hardening-2026-10-13-discord.md).
 
-Latest pass: [recorder lifecycle and track timing](repository-hardening-2026-10-12-lifecycle.md).
+Previous pass: [manifest structure validation](repository-hardening-2026-10-13-manifests.md).
+
+Previous pass: [recorder lifecycle and track timing](repository-hardening-2026-10-12-lifecycle.md).
 
 Third audit after PR #14: [2026-10-12 transcript boundaries](repository-hardening-2026-10-12-boundaries.md).
 

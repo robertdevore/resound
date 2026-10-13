@@ -1,0 +1,152 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/audio/src/discord-startup.test.ts (5 tests | 4 failed) 527ms
+     × reserves startup before asynchronous dependency loading 144ms
+     × cannot activate capture after stop cancels pending startup 10ms
+     × destroys a subscription when decoder construction fails 207ms
+     × retains a pause flush failure instead of reporting successful finalization 153ms
+ ❯ packages/audio/src/pycord-lifecycle.test.ts (4 tests | 4 failed) 332ms
+     × rejects overlapping startup without launching another sidecar 273ms
+     × shares concurrent stop requests and returns the same result 14ms
+     × keeps stop pending until the child has closed 35ms
+     × retains ownership through exit until close during abort 6ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/audio/src/discord-startup.test.ts > optional Discord adapter startup and failure ownership > reserves startup before asynchronous dependency loading
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ packages/audio/src/discord-startup.test.ts:30:18
+     28|     const second = capture.start({ sessionDir: dir });
+     29|     void second.catch(() => {});
+     30|     expect(load).toHaveBeenCalledTimes(1);
+       |                  ^
+     31|     await expect(second).rejects.toThrow(/already/);
+     32|     resolve(deps());
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  packages/audio/src/discord-startup.test.ts > optional Discord adapter startup and failure ownership > cannot activate capture after stop cancels pending startup
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+undefined
+
+ ❯ packages/audio/src/discord-startup.test.ts:42:34
+     40|     const capture = recorder(() => new Promise((done) => { resolve = d…
+     41|     const ready = capture.start({ sessionDir: dir });
+     42|     const rejected = expect(ready).rejects.toThrow(/stopped during sta…
+       |                                  ^
+     43|     await capture.stop();
+     44|     resolve(deps());
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  packages/audio/src/discord-startup.test.ts > optional Discord adapter startup and failure ownership > destroys a subscription when decoder construction fails
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/audio/src/discord-startup.test.ts:53:29
+     51|     await capture.start({ sessionDir: dir });
+     52|     speaking.emit("start", "123");
+     53|     expect(input.destroyed).toBe(true);
+       |                             ^
+     54|     expect(capture.getHealth().summary).toMatch(/failed/);
+     55|     await expect(capture.stop()).rejects.toThrow("decoder unavailable"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  packages/audio/src/discord-startup.test.ts > optional Discord adapter startup and failure ownership > retains a pause flush failure instead of reporting successful finalization
+AssertionError: expected 'paused' to be 'failed' // Object.is equality
+
+Expected: "failed"
+Received: "paused"
+
+ ❯ packages/audio/src/discord-startup.test.ts:64:40
+     62|     vi.spyOn(fs, "writeFileSync").mockImplementation(() => { throw new…
+     63|     expect(() => capture.pause()).toThrow("disk full");
+     64|     expect(capture.getHealth().status).toBe("failed");
+       |                                        ^
+     65|     await expect(capture.stop()).rejects.toThrow("disk full");
+     66|     expect(input.destroyed).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  packages/audio/src/pycord-lifecycle.test.ts > Pycord process ownership > rejects overlapping startup without launching another sidecar
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ packages/audio/src/pycord-lifecycle.test.ts:48:19
+     46|     const duplicate = recorder.start({ sessionDir: dir });
+     47|     void duplicate.catch(() => {});
+     48|     expect(spawn).toHaveBeenCalledTimes(1);
+       |                   ^
+     49|     await expect(duplicate).rejects.toThrow(/already/);
+     50|     child.event({ event: "ready" });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  packages/audio/src/pycord-lifecycle.test.ts > Pycord process ownership > shares concurrent stop requests and returns the same result
+AssertionError: expected "vi.fn()" to be called 1 times, but got 2 times
+ ❯ packages/audio/src/pycord-lifecycle.test.ts:59:31
+     57|     void first.catch(() => {});
+     58|     void second.catch(() => {});
+     59|     expect(child.stdin.write).toHaveBeenCalledTimes(1);
+       |                               ^
+     60|     child.event({ event: "stopped", tracks: [] });
+     61|     child.close();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  packages/audio/src/pycord-lifecycle.test.ts > Pycord process ownership > keeps stop pending until the child has closed
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/audio/src/pycord-lifecycle.test.ts:73:21
+     71|     child.event({ event: "stopped", tracks: [] });
+     72|     await vi.advanceTimersByTimeAsync(0);
+     73|     expect(settled).toBe(false);
+       |                     ^
+     74|     child.close();
+     75|     await stopped;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  packages/audio/src/pycord-lifecycle.test.ts > Pycord process ownership > retains ownership through exit until close during abort
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/audio/src/pycord-lifecycle.test.ts:87:21
+     85|     child.emit("exit", 0, null);
+     86|     await vi.advanceTimersByTimeAsync(0);
+     87|     expect(settled).toBe(false);
+       |                     ^
+     88|     child.close();
+     89|     await aborted;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  8 failed | 1 passed (9)
+   Start at  00:27:52
+   Duration  4.14s (transform 2.24s, setup 0ms, import 2.73s, tests 859ms, environment 1ms)
+
