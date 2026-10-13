@@ -178,6 +178,7 @@ export class SystemRecorder implements Recorder {
   };
   private child?: ChildProcess;
   private done?: Promise<string>;
+  private stopPromise?: Promise<AudioChunk[]>;
   private outFile?: string;
   private systemOutFile?: string;
   private micOutFile?: string;
@@ -259,6 +260,7 @@ export class SystemRecorder implements Recorder {
   }
 
   async start(options: RecorderStartOptions): Promise<void> {
+    if (this.child) throw new Error("System recorder is already started.");
     deadlineMs(this.options.stopTimeoutMs, 15_000);
     const paths = sessionPaths(options.sessionDir);
     fs.mkdirSync(paths.audioRaw, { recursive: true });
@@ -273,7 +275,7 @@ export class SystemRecorder implements Recorder {
         : undefined;
     this.startedAt = Date.now();
     this.paused = false;
-    this.status = "recording";
+    this.stopPromise = undefined;
 
     const ffmpeg = this.options.ffmpegPath ?? "ffmpeg";
     const args = buildSystemFfmpegArgs({
@@ -291,52 +293,69 @@ export class SystemRecorder implements Recorder {
       fs.closeSync(stderrFd);
     }
     this.child = child;
+    this.status = "recording";
+    const outFile = this.outFile;
 
     child.stdin?.on("error", () => child.kill("SIGINT"));
 
     this.done = new Promise((resolve, reject) => {
+      let processError: Error | undefined;
       child.on("error", (err) => {
         const e = err as NodeJS.ErrnoException;
-        if (e.code === "ENOENT")
-          reject(
-            new Error("ffmpeg not found. Install it: brew install ffmpeg"),
-          );
-        else reject(err);
+        processError =
+          e.code === "ENOENT"
+            ? new Error("ffmpeg not found. Install it: brew install ffmpeg")
+            : err;
+        this.status = "failed";
       });
       child.on("close", (code, signal) => {
+        this.paused = false;
         try {
-          if (isCleanSystemRecorderClose(code, signal)) resolve(this.outFile!);
-          else
-            reject(
-              new Error(
-                `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
-              ),
+          if (processError) throw processError;
+          if (!isCleanSystemRecorderClose(code, signal)) {
+            throw new Error(
+              `ffmpeg exited ${code ?? signal}: ${diagnosticPreview(stderrPath)}`,
             );
+          }
+          this.status = "idle";
+          resolve(outFile);
         } catch (error) {
+          this.status = "failed";
           reject(error);
         }
       });
     });
 
-    // `spawn()` succeeding only proves ffmpeg exists. Invalid device indices
-    // and macOS permission failures arrive just after spawn, so do not announce
-    // a recording until it has survived that startup window.
-    await Promise.race([
-      new Promise<void>((resolve) =>
-        setTimeout(resolve, this.options.startupProbeMs ?? 750),
-      ),
-      this.done.then(
-        () =>
-          Promise.reject(
-            new Error("ffmpeg stopped before audio capture became ready."),
-          ),
-        (err) => Promise.reject(err),
-      ),
-    ]);
+    // Keep ownership until close, including when spawn reports an error.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, this.options.startupProbeMs ?? 750);
+        }),
+        this.done.then(() => {
+          throw new Error("ffmpeg stopped before audio capture became ready.");
+        }),
+      ]);
+    } catch (error) {
+      if (this.child === child) {
+        this.child = undefined;
+        this.done = undefined;
+        this.status = "failed";
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   pause(): void {
-    if (!this.child || this.child.exitCode !== null)
+    if (
+      !this.child ||
+      this.child.exitCode !== null ||
+      this.child.signalCode !== null ||
+      !["recording", "paused"].includes(this.status)
+    )
       throw new Error("System recorder is not running.");
     if (!this.paused) {
       this.child.kill("SIGSTOP");
@@ -346,7 +365,12 @@ export class SystemRecorder implements Recorder {
   }
 
   resume(): void {
-    if (!this.child || this.child.exitCode !== null)
+    if (
+      !this.child ||
+      this.child.exitCode !== null ||
+      this.child.signalCode !== null ||
+      !["recording", "paused"].includes(this.status)
+    )
       throw new Error("System recorder is not running.");
     if (this.paused) {
       this.child.kill("SIGCONT");
@@ -355,48 +379,62 @@ export class SystemRecorder implements Recorder {
     }
   }
 
-  async stop(): Promise<AudioChunk[]> {
+  stop(): Promise<AudioChunk[]> {
+    if (this.stopPromise) return this.stopPromise;
     if (!this.child || !this.done || !this.outFile) {
-      throw new Error("System recorder has not been started.");
+      return Promise.reject(new Error("System recorder has not been started."));
     }
+    this.stopPromise = this.finishStop(this.child, this.done);
+    return this.stopPromise;
+  }
 
-    if (this.paused) this.resume();
-
-    this.status = "stopping";
-    try {
-      if (!this.child.stdin) throw new Error("ffmpeg stdin unavailable");
-      this.child.stdin.write("q");
-      this.child.stdin.end();
-    } catch {
-      this.child.kill("SIGINT");
+  private async finishStop(
+    child: ChildProcess,
+    done: Promise<string>,
+  ): Promise<AudioChunk[]> {
+    const running = child.exitCode === null && child.signalCode === null;
+    if (running) {
+      if (this.paused) {
+        child.kill("SIGCONT");
+        this.paused = false;
+      }
+      this.status = "stopping";
+      try {
+        if (!child.stdin) throw new Error("ffmpeg stdin unavailable");
+        child.stdin.write("q");
+        child.stdin.end();
+      } catch {
+        child.kill("SIGINT");
+      }
     }
-
-    const timeout = deadlineMs(this.options.stopTimeoutMs, 15_000);
-    const timer = setTimeout(() => this.child?.kill("SIGKILL"), timeout);
-    let file: string;
+    const timer = setTimeout(
+      () => child.kill("SIGKILL"),
+      deadlineMs(this.options.stopTimeoutMs, 15_000),
+    );
     try {
-      file = await this.done;
+      const file = await done;
+      this.status = "idle";
+      return [
+        {
+          userId: "local",
+          username: "Local Capture",
+          path: file,
+          startSeconds: 0,
+          durationSeconds: Math.max(
+            0,
+            Math.round((Date.now() - this.startedAt) / 1000),
+          ),
+        },
+      ];
+    } catch (error) {
+      this.status = "failed";
+      throw error;
     } finally {
       clearTimeout(timer);
+      this.child = undefined;
+      this.done = undefined;
+      this.paused = false;
     }
-    const durationSeconds = Math.max(
-      0,
-      Math.round((Date.now() - this.startedAt) / 1000),
-    );
-    this.child = undefined;
-    this.done = undefined;
-    this.paused = false;
-    this.status = "idle";
-
-    return [
-      {
-        userId: "local",
-        username: "Local Capture",
-        path: file,
-        startSeconds: 0,
-        durationSeconds,
-      },
-    ];
   }
 
   async captureSummary(): Promise<string[]> {
@@ -423,7 +461,9 @@ export class SystemRecorder implements Recorder {
             ? "Local capture running."
             : this.status === "stopping"
               ? "Local capture finalizing audio."
-              : "Local capture idle.",
+              : this.status === "failed"
+                ? "Local capture failed."
+                : "Local capture idle.",
       warnings: this.capabilities.warnings ?? [],
       metrics: {
         elapsedSeconds:
