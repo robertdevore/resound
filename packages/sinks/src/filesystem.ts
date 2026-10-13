@@ -16,21 +16,32 @@ export class FilesystemSink implements Sink {
     const dest = path.join(this.destDir, path.basename(session.dir));
     fs.mkdirSync(dest, { recursive: true, mode: 0o700 });
     const files = [
-      paths.manifest,
       paths.jsonl,
       paths.markdown,
       paths.vtt,
       paths.srt,
       paths.summary,
       paths.actionItems,
+      paths.manifest,
     ];
     let copied = 0;
     for (const f of files) {
       if (fs.existsSync(f)) {
         const target = path.join(dest, path.relative(session.dir, f));
         fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
-        fs.copyFileSync(f, target);
-        fs.chmodSync(target, 0o600);
+        // Stage beside the destination so failures cannot truncate its prior
+        // contents. Copying stays file-backed even for large transcripts.
+        const staging = fs.mkdtempSync(
+          path.join(path.dirname(target), ".resound-copy-"),
+        );
+        try {
+          const staged = path.join(staging, "content");
+          fs.copyFileSync(f, staged);
+          fs.chmodSync(staged, 0o600);
+          fs.renameSync(staged, target);
+        } finally {
+          fs.rmSync(staging, { recursive: true, force: true });
+        }
         copied++;
       }
     }
