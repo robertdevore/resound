@@ -110,6 +110,10 @@ export class PycordDiscordRecorder implements Recorder {
   };
 
   private child?: ChildProcess;
+  private closed?: Promise<void>;
+  private starting = false;
+  private stopping = false;
+  private stopPromise?: Promise<AudioChunk[]>;
   private lines?: readline.Interface;
   private status: RecordingHealth["status"] = "idle";
   private stopped?: SidecarStoppedEvent;
@@ -211,6 +215,8 @@ export class PycordDiscordRecorder implements Recorder {
   }
 
   async start(options: RecorderStartOptions): Promise<void> {
+    if (this.child || this.starting || this.stopping)
+      throw new Error("Pycord recorder is already started.");
     const startupTimeoutMs = deadlineMs(this.options.startupTimeoutMs, 20_000);
     this.stopTimeoutMs = deadlineMs(
       this.options.stopTimeoutMs ?? process.env.RESOUND_SIDECAR_STOP_TIMEOUT_MS,
@@ -254,6 +260,10 @@ export class PycordDiscordRecorder implements Recorder {
       fs.closeSync(stderrFd);
     }
     this.child = child;
+    this.closed = new Promise((resolve) =>
+      child.once("close", () => resolve()),
+    );
+    this.stopPromise = undefined;
     this.lines = readline.createInterface({ input: child.stdout! });
     this.pending = [];
     this.status = "recording";
@@ -289,11 +299,17 @@ export class PycordDiscordRecorder implements Recorder {
         this.status = this.stopped ? "warning" : "failed";
         this.failPending(error);
       }
+      this.failPending(
+        new Error(
+          "Pycord sidecar closed before a pending operation completed.",
+        ),
+      );
       this.child = undefined;
       this.lines?.close();
       this.lines = undefined;
     });
 
+    this.starting = true;
     try {
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -316,11 +332,22 @@ export class PycordDiscordRecorder implements Recorder {
     } catch (error) {
       await this.terminateSidecar();
       throw error;
+    } finally {
+      this.starting = false;
     }
   }
 
-  async stop(): Promise<AudioChunk[]> {
-    if (this.stopped) {
+  stop(): Promise<AudioChunk[]> {
+    if (this.stopPromise) return this.stopPromise;
+    this.stopping = true;
+    this.stopPromise = this.finishStop().finally(() => {
+      this.stopping = false;
+    });
+    return this.stopPromise;
+  }
+
+  private async finishStop(): Promise<AudioChunk[]> {
+    if (this.stopped && !this.child) {
       this.status = this.stopped.warnings?.length ? "warning" : "idle";
       return [...this.stopped.tracks].sort(
         (a, b) => a.startSeconds - b.startSeconds,
@@ -336,18 +363,27 @@ export class PycordDiscordRecorder implements Recorder {
         new Error("Pycord sidecar recorder is not running.")
       );
     }
-    this.status = "stopping";
     this.progressBytes = 0;
-    const stoppedPromise = this.waitForEvent(
-      (event): event is SidecarStoppedEvent => event.event === "stopped",
-    );
-    this.child.stdin?.write("stop\n");
-    this.child.stdin?.end();
+    const stoppedPromise = this.stopped
+      ? Promise.resolve(this.stopped)
+      : this.waitForEvent(
+          (event): event is SidecarStoppedEvent => event.event === "stopped",
+        );
+    const closed = this.closed;
+    const finalized = stoppedPromise.then(async (event) => {
+      await closed;
+      return event;
+    });
+    if (!this.stopped) {
+      this.status = "stopping";
+      this.child.stdin?.write("stop\n");
+      this.child.stdin?.end();
+    }
     const timeoutMs = this.stopTimeoutMs;
     let timer: NodeJS.Timeout | undefined;
     try {
       const stopped = await Promise.race([
-        stoppedPromise,
+        finalized,
         new Promise<never>((_resolve, reject) => {
           timer = setTimeout(
             () =>
@@ -388,7 +424,9 @@ export class PycordDiscordRecorder implements Recorder {
             ? "Pycord Discord-native sidecar is finalizing audio."
             : this.status === "warning"
               ? "Pycord Discord-native sidecar completed with warnings."
-              : "Pycord Discord-native sidecar is idle.",
+              : this.status === "failed"
+                ? "Pycord Discord-native sidecar failed."
+                : "Pycord Discord-native sidecar is idle.",
       warnings: this.stopped?.warnings ?? this.capabilities.warnings ?? [],
     };
   }
@@ -438,22 +476,14 @@ export class PycordDiscordRecorder implements Recorder {
     this.status = "failed";
     this.failPending(new Error("Pycord sidecar was terminated."));
     child.stdin?.destroy();
-    child.kill("SIGTERM");
-    await new Promise<void>((resolve) => {
-      if (child.exitCode !== null || child.signalCode !== null) {
-        resolve();
-        return;
-      }
-      const force = setTimeout(() => {
-        child.kill("SIGKILL");
-        resolve();
-      }, 2_000);
-      child.once("exit", () => {
-        clearTimeout(force);
-        resolve();
-      });
-    });
-    this.child = undefined;
+    const force = setTimeout(() => child.kill("SIGKILL"), 2_000);
+    try {
+      child.kill("SIGTERM");
+      // exit precedes stdout drainage and close; retain ownership through both.
+      await this.closed;
+    } finally {
+      clearTimeout(force);
+    }
   }
 
   private waitForEvent<T extends SidecarEvent>(
