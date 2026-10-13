@@ -1,0 +1,75 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/exporters/src/exporters.test.ts (15 tests | 4 failed) 1079ms
+   × rejects output audio/raw/source.wav overlapping retained audio before writing 119ms
+   × rejects output audio/chunks/track.wav overlapping retained audio before writing 63ms
+   × rejects output audio/raw overlapping retained audio before writing 16ms
+   × rejects output audio overlapping retained audio before writing 118ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/exporters/src/exporters.test.ts > rejects output audio/raw/source.wav overlapping retained audio before writing
+ FAIL  packages/exporters/src/exporters.test.ts > rejects output audio/chunks/track.wav overlapping retained audio before writing
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/exporters/src/exporters.test.ts:149:70
+    147|       fs.writeFileSync(audio, "synthetic retained audio");
+    148|       manifest.outputs.jsonl = configured;
+    149|       expect(() => writeSessionOutputs({ manifest, segments, dir })).t…
+       |                                                                      ^
+    150|       expect(fs.readFileSync(audio, "utf8")).toBe("synthetic retained …
+    151|       expect(fs.readFileSync(path.join(dir, "transcript.jsonl"))).toEq…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/exporters/src/exporters.test.ts > rejects output audio/raw overlapping retained audio before writing
+AssertionError: expected [Function] to throw error matching /Session output path/ but got 'EISDIR: illegal operation on a direct…'
+
+- Expected:
+/Session output path/
+
++ Received:
+"EISDIR: illegal operation on a directory, rename '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-audio-export-YoQqn8/audio/.resound-write-sd47F6/content' -> '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-audio-export-YoQqn8/audio/raw'"
+
+ ❯ packages/exporters/src/exporters.test.ts:149:70
+    147|       fs.writeFileSync(audio, "synthetic retained audio");
+    148|       manifest.outputs.jsonl = configured;
+    149|       expect(() => writeSessionOutputs({ manifest, segments, dir })).t…
+       |                                                                      ^
+    150|       expect(fs.readFileSync(audio, "utf8")).toBe("synthetic retained …
+    151|       expect(fs.readFileSync(path.join(dir, "transcript.jsonl"))).toEq…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/exporters/src/exporters.test.ts > rejects output audio overlapping retained audio before writing
+AssertionError: expected [Function] to throw error matching /Session output path/ but got 'EISDIR: illegal operation on a direct…'
+
+- Expected:
+/Session output path/
+
++ Received:
+"EISDIR: illegal operation on a directory, rename '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-audio-export-R0k8kM/.resound-write-C8cN2d/content' -> '/var/folders/wb/0cck3lgd08n55g_8ly9qmf_00000gn/T/resound-audio-export-R0k8kM/audio'"
+
+ ❯ packages/exporters/src/exporters.test.ts:149:70
+    147|       fs.writeFileSync(audio, "synthetic retained audio");
+    148|       manifest.outputs.jsonl = configured;
+    149|       expect(() => writeSessionOutputs({ manifest, segments, dir })).t…
+       |                                                                      ^
+    150|       expect(fs.readFileSync(audio, "utf8")).toBe("synthetic retained …
+    151|       expect(fs.readFileSync(path.join(dir, "transcript.jsonl"))).toEq…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 11 passed (15)
+   Start at  00:49:59
+   Duration  3.18s (transform 524ms, setup 0ms, import 608ms, tests 1.08s, environment 1ms)
+
