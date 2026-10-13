@@ -280,3 +280,13 @@ overrides are preserved. For an older Strata installation that uses `notes add`,
 set `STRATA_INGEST_COMMAND="strata notes add --file"`; when upgrading Strata,
 update that override to `notes create`. No automatic command retry occurs,
 because an ambiguous failure might already have created a note.
+
+Canonical JSONL validation checks start timestamps and nonempty end timestamps
+using the same parser as subtitle export. Existing minute/second and fractional
+forms remain supported, as does an empty `end_ts` for an unknown end. Invalid or
+non-finite timestamps fail validation/loading before exports or delivery.
+
+Filesystem delivery stages each artifact privately beside its destination, then
+renames it into place. A failed copy preserves that artifact's previous contents
+and cleans its staging directory. The manifest is copied last. This is atomic
+per file, not a multi-file transaction or a guarantee against power loss.

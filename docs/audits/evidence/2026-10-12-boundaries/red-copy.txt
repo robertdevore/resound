@@ -1,0 +1,30 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/sinks/src/sinks.test.ts (8 tests | 1 failed) 640ms
+   × preserves an existing delivery artifact when copying fails 33ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/sinks/src/sinks.test.ts > preserves an existing delivery artifact when copying fails
+AssertionError: expected 'partial new transcript' to be 'previous complete transcript' // Object.is equality
+
+Expected: "previous complete transcript"
+Received: "partial new transcript"
+
+ ❯ packages/sinks/src/sinks.test.ts:155:45
+    153|   try {
+    154|     await expect(new FilesystemSink(dest).send(session)).rejects.toThr…
+    155|     expect(fs.readFileSync(target, "utf8")).toBe("previous complete tr…
+       |                                             ^
+    156|     expect(fs.readdirSync(targetDir)).toEqual(["transcript.md"]);
+    157|   } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  23:16:53
+   Duration  2.70s (transform 924ms, setup 0ms, import 899ms, tests 640ms, environment 1ms)
+
