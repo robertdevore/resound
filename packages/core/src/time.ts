@@ -30,6 +30,7 @@ export function parseTimestamp(ts: string): number {
   for (const part of parts) {
     seconds = seconds * 60 + part;
   }
+  if (!Number.isFinite(seconds)) throw new Error(`Invalid timestamp: "${ts}"`);
   return seconds;
 }
 

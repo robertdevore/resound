@@ -1,3 +1,4 @@
+import { parseTimestamp } from "./time.js";
 import type { TranscriptSegment } from "./types.js";
 
 const REQUIRED_FIELDS: (keyof TranscriptSegment)[] = [
@@ -63,6 +64,16 @@ export function parseJsonl(content: string): ParseResult {
     if (typeof confidence === "number" && (confidence < 0 || confidence > 1)) {
       errors.push(`Line ${index + 1}: confidence must be between 0 and 1`);
       return;
+    }
+    for (const field of ["ts", "end_ts"] as const) {
+      // Empty end_ts is the established unknown-end convention for subtitles.
+      if (field === "end_ts" && record[field] === "") continue;
+      try {
+        parseTimestamp(record[field] as string);
+      } catch {
+        errors.push(`Line ${index + 1}: invalid timestamp in field: ${field}`);
+        return;
+      }
     }
     segments.push({
       ts: record.ts as string,
