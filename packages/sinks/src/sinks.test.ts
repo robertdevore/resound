@@ -98,6 +98,9 @@ it("preserves manifest-relative nested paths when copying a session", async () =
     expect(validateSession(copy).valid).toBe(true);
     expect(loadSession(copy).manifest).toEqual(session.manifest);
     expect(fs.existsSync(path.join(copy, "rendered/transcript.md"))).toBe(true);
+    expect(
+      fs.statSync(path.join(copy, "rendered/transcript.md")).mode & 0o077,
+    ).toBe(0);
   } finally {
     fs.rmSync(dest, { recursive: true, force: true });
     fs.rmSync(session.dir, { recursive: true, force: true });
@@ -135,5 +138,32 @@ it("uses the current Strata CLI by default while preserving command overrides", 
     ]);
   } finally {
     fs.rmSync(session.dir, { recursive: true, force: true });
+  }
+});
+
+it("preserves an existing delivery artifact when copying fails", async () => {
+  const { FilesystemSink } = await import("./filesystem.js");
+  const session = tempSession();
+  const dest = fs.mkdtempSync(path.join(os.tmpdir(), "resound-copy-failure-"));
+  const targetDir = path.join(dest, path.basename(session.dir));
+  fs.mkdirSync(targetDir);
+  const target = path.join(targetDir, "transcript.md");
+  fs.writeFileSync(target, "previous complete transcript");
+  const copy = vi.spyOn(fs, "copyFileSync").mockImplementation((_from, to) => {
+    fs.writeFileSync(to, "partial new transcript");
+    throw new Error("synthetic disk full");
+  });
+  try {
+    await expect(new FilesystemSink(dest).send(session)).rejects.toThrow(
+      /synthetic disk full/,
+    );
+    expect(fs.readFileSync(target, "utf8")).toBe(
+      "previous complete transcript",
+    );
+    expect(fs.readdirSync(targetDir)).toEqual(["transcript.md"]);
+  } finally {
+    copy.mockRestore();
+    fs.rmSync(session.dir, { recursive: true, force: true });
+    fs.rmSync(dest, { recursive: true, force: true });
   }
 });
