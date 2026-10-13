@@ -94,3 +94,17 @@ it.each(["openai", "openai-compatible"])(
     ).rejects.toThrow(/abort|timeout/i);
   },
 );
+
+it.each([
+  { error: "synthetic provider error" },
+  { segments: [{ start: "2", end: 3, text: "hello" }] },
+  { segments: [{ start: 0, end: 1, text: "hello", avg_logprob: "bad" }] },
+])("rejects malformed successful HTTP payloads %j", async (body) => {
+  const input = await setup((_req, res) => res.end(JSON.stringify(body)));
+  await expect(
+    new OpenAICompatibleTranscriber({
+      apiKey: "synthetic",
+      baseUrl: input.baseUrl,
+    }).transcribe(input),
+  ).rejects.toThrow(/Invalid transcription response/);
+});

@@ -1,3 +1,4 @@
+import { parseProviderJson } from "./provider-json.js";
 import fs from "node:fs";
 import {
   deadlineMs,
@@ -17,13 +18,6 @@ import {
   selectEffectiveTracks,
   type RawSegment,
 } from "./tracks.js";
-
-interface VerboseSegment extends RawSegment {
-  start: number;
-  end: number;
-  text: string;
-  avg_logprob?: number;
-}
 
 export interface OpenAICompatibleOptions {
   apiKey: string;
@@ -183,28 +177,11 @@ export class OpenAICompatibleTranscriber implements Transcriber {
         `Transcription failed: ${res.status} ${await responseErrorDetail(res)}`,
       );
     }
-    const json = (await res.json()) as {
-      segments?: VerboseSegment[];
-      text?: string;
-    };
-    const raw = json.segments ?? [];
-    if (raw.length === 0 && json.text) {
-      return [{ start: 0, end: 0, text: json.text.trim(), confidence: 0 }];
-    }
-    return raw.map((s) => ({
-      start: s.start,
-      end: s.end,
-      text: s.text.trim(),
-      confidence: s.avg_logprob != null ? clamp01(Math.exp(s.avg_logprob)) : 0,
-    }));
+    return parseProviderJson(await res.json(), "openai", true);
   }
 }
 
 /** Back-compat alias: the "openai" provider is the compatible client with the default OpenAI base URL. */
 export class OpenAITranscriber extends OpenAICompatibleTranscriber {
   override readonly provider = "openai";
-}
-
-function clamp01(n: number): number {
-  return Math.max(0, Math.min(1, n));
 }

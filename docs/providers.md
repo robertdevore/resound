@@ -266,3 +266,16 @@ A broken stdin command pipe rejects capture rather than crashing the bot with an
 unhandled stream error. Sidecar stderr writes directly to the private adjacent
 log file, keeping per-chunk disk writes off the bot event loop; unexpected exits
 return a short tail and the full diagnostic path.
+
+## Provider response validation
+
+A successful HTTP status or local process exit must also produce a recognized
+transcription response. OpenAI-compatible and Python Whisper JSON must contain
+`segments` (an array) or `text` (a string); whisper.cpp JSON must contain a
+`transcription` array. Explicit empty arrays and text-only responses still work.
+Segment text must be a string. Supplied timestamps must be finite, nonnegative
+numbers; omitted optional timestamps retain their zero defaults. Remote
+`avg_logprob`, when present and non-null, must be finite numeric data.
+Malformed output fails with a field-specific diagnostic instead of completing
+with an empty or coerced transcript. Audio remains available through the existing
+failure/recovery flow. Resound does not automatically retry provider calls.
