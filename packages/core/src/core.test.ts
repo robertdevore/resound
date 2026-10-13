@@ -355,3 +355,35 @@ it("requires a unique session reference instead of choosing the first match", as
     fs.rmSync(root, { recursive: true, force: true });
   }
 });
+
+it.each(["nonsense", "00:60:00", "", `${"9".repeat(400)}:00:00`])(
+  "rejects invalid canonical start timestamps %s",
+  (ts) => {
+    const result = parseJsonl(
+      JSON.stringify({
+        ts,
+        end_ts: "00:01:00",
+        speaker: "A",
+        user_id: "1",
+        text: "hello",
+        confidence: 1,
+      }),
+    );
+    expect(result.segments).toEqual([]);
+    expect(result.errors.join(" ")).toMatch(/Line 1: invalid timestamp.*ts/);
+  },
+);
+it("validates nonempty end timestamps while preserving legacy unknown ends", () => {
+  const segment = {
+    ts: "00:01.500",
+    end_ts: "",
+    speaker: "A",
+    user_id: "1",
+    text: "hello",
+    confidence: 1,
+  };
+  expect(parseJsonl(JSON.stringify(segment)).errors).toEqual([]);
+  expect(
+    parseJsonl(JSON.stringify({ ...segment, end_ts: "bad" })).errors.join(" "),
+  ).toMatch(/end_ts/);
+});

@@ -60,6 +60,21 @@ try {
   assert.equal(ambiguous.stdout, "");
   assert.match(ambiguous.stderr, /Ambiguous session reference/);
   run(["export", session, "--format", "unsupported"], 1);
+  const jsonl = path.join(session, "transcript.jsonl");
+  const rows = fs
+    .readFileSync(jsonl, "utf8")
+    .trim()
+    .split("\n")
+    .map(JSON.parse);
+  rows[0].ts = "invalid-clock";
+  fs.writeFileSync(
+    jsonl,
+    rows.map((row) => JSON.stringify(row)).join("\n") + "\n",
+  );
+  assert.match(run(["validate", session], 1).stderr, /invalid timestamp/);
+  const invalidExport = run(["export", session, "--format", "md"], 1);
+  assert.equal(invalidExport.stdout, "");
+  assert.match(invalidExport.stderr, /invalid timestamp/);
   console.log(
     `CLI smoke passed: ${checks} commands; ${Buffer.byteLength(markdown)} stdout bytes preserved.`,
   );
