@@ -39,6 +39,7 @@ jobs:
           cache: pnpm
       - run: ${{ matrix.install }}
       - run: pnpm verify
+      - run: pnpm test:cli
 
   python-sidecar:
     runs-on: ubuntu-latest

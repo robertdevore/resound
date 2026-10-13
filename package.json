@@ -22,7 +22,8 @@
     "cli": "tsx apps/cli/src/index.ts",
     "bot": "tsx apps/bot/src/index.ts",
     "bot:register": "tsx apps/bot/src/register.ts",
-    "bot:start": "tsx apps/bot/src/index.ts"
+    "bot:start": "tsx apps/bot/src/index.ts",
+    "test:cli": "node scripts/verify-cli.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.20.1",

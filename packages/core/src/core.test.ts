@@ -337,3 +337,21 @@ it("returns validation errors for unreadable canonical artifacts", async () => {
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("requires a unique session reference instead of choosing the first match", async () => {
+  const { resolveSession } = await import("./store.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "resound-resolve-"));
+  try {
+    for (const name of ["team-one", "team-two"])
+      writeManifest(path.join(root, name), createManifest({ title: name }));
+    expect(() => resolveSession("team", root)).toThrow(
+      /Ambiguous session reference/,
+    );
+    expect(() => resolveSession("", root)).toThrow(/empty/);
+    expect(resolveSession("team-one", root)).toBe(path.join(root, "team-one"));
+    expect(resolveSession("two", root)).toBe(path.join(root, "team-two"));
+    expect(resolveSession("missing", root)).toBeUndefined();
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});

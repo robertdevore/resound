@@ -27,24 +27,50 @@ export function sessionPaths(
   manifest?: SessionManifest,
 ): SessionPaths {
   const outputs = manifest?.outputs;
+  const resolvedDir = path.resolve(dir);
+  const reserved = [path.join(resolvedDir, "manifest.json")];
   const outputPath = (
     configured: string | undefined,
     fallback: string,
   ): string => {
     const relative = configured ?? fallback;
+    if (
+      typeof relative !== "string" ||
+      !relative.trim() ||
+      relative.includes("\0")
+    ) {
+      throw new Error(
+        "Session output path must be a non-empty filename without NUL bytes.",
+      );
+    }
     if (path.isAbsolute(relative)) {
       throw new Error(`Session output path must be relative: ${relative}`);
     }
-    const resolvedDir = path.resolve(dir);
     const resolved = path.resolve(resolvedDir, relative);
+    const within = path.relative(resolvedDir, resolved);
     if (
-      resolved !== resolvedDir &&
-      !resolved.startsWith(`${resolvedDir}${path.sep}`)
+      within === ".." ||
+      within.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(within)
     ) {
       throw new Error(
         `Session output path escapes session directory: ${relative}`,
       );
     }
+    if (
+      !within ||
+      reserved.some(
+        (other) =>
+          resolved === other ||
+          resolved.startsWith(`${other}${path.sep}`) ||
+          other.startsWith(`${resolved}${path.sep}`),
+      )
+    ) {
+      throw new Error(
+        `Session output path conflicts with another artifact: ${relative}`,
+      );
+    }
+    reserved.push(resolved);
     return path.join(dir, relative);
   };
   return {

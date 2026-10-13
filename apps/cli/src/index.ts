@@ -387,7 +387,8 @@ async function runSink(s: Sink, ref: string): Promise<void> {
   receipt(
     `[${result.ok ? "ok" : result.skipped ? "skip" : "fail"}] ${result.sink}: ${result.detail}`,
   );
-  process.exit(result.ok ? 0 : 1);
+  // Allow queued pipe output to drain; immediate exit can truncate transcripts.
+  process.exitCode = result.ok ? 0 : 1;
 }
 
 sink

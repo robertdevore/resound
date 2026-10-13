@@ -101,3 +101,35 @@ describe("output writing", () => {
     expect(fs.existsSync(path.join(dir, "exports", "summary.md"))).toBe(true);
   });
 });
+
+it.each([
+  "transcript.jsonl",
+  "./transcript.jsonl",
+  "manifest.json",
+  ".",
+  "",
+  "transcript.jsonl/child.md",
+])(
+  "rejects conflicting output %j before changing any artifact",
+  (configured) => {
+    const { manifest, segments } = fixture();
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "resound-collision-"));
+    try {
+      writeSessionOutputs({ manifest, segments, dir });
+      const before = new Map(
+        fs
+          .readdirSync(dir)
+          .map((file) => [file, fs.readFileSync(path.join(dir, file))]),
+      );
+      manifest.outputs.markdown = configured;
+      expect(() => writeSessionOutputs({ manifest, segments, dir })).toThrow(
+        /Session output path/,
+      );
+      expect(fs.readdirSync(dir).sort()).toEqual([...before.keys()].sort());
+      for (const [file, bytes] of before)
+        expect(fs.readFileSync(path.join(dir, file))).toEqual(bytes);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);
