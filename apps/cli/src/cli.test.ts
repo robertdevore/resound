@@ -1,8 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { loadSession, validateSession } from "@resound/core";
+import {
+  listSessions,
+  loadSession,
+  readManifest,
+  validateSession,
+} from "@resound/core";
 import { runChecks } from "@resound/kujo";
 import {
   createFileSession,
@@ -38,6 +43,7 @@ describe("createMockSession", () => {
     // Reloads from disk identically and validates.
     const reloaded = loadSession(session.dir);
     expect(reloaded.segments.length).toBe(session.segments.length);
+    expect(reloaded.manifest.status).toBe("completed");
     expect(validateSession(session.dir).valid).toBe(true);
     expect(runChecks(session.dir).every((c) => c.pass)).toBe(true);
 
@@ -126,4 +132,126 @@ it("flushes the complete stdout sink through a pipe before exiting", async () =>
   } finally {
     fs.rmSync(out, { recursive: true, force: true });
   }
+});
+
+describe("file session durability", () => {
+  const directories: string[] = [];
+  afterEach(() => {
+    vi.restoreAllMocks();
+    for (const dir of directories.splice(0))
+      fs.rmSync(dir, { recursive: true, force: true });
+  });
+  function fixture() {
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "resound-file-durable-"));
+    directories.push(out);
+    const audio = path.join(out, "meeting.wav");
+    fs.writeFileSync(audio, "synthetic audio");
+    return {
+      out,
+      audio,
+      env: { RESOUND_OUTPUT_DIR: out, RESOUND_TRANSCRIBER: "mock" },
+    };
+  }
+  it("marks successful sessions completed and declares the retained audio", async () => {
+    const { out, audio, env } = fixture();
+    const session = await createFileSession({
+      title: "Durable",
+      audioFile: audio,
+      env,
+    });
+    const manifest = readManifest(session.dir);
+    expect(manifest.status).toBe("completed");
+    expect(manifest.audio_files.mixed).toBe(
+      path.join(session.dir, "audio/raw/meeting.wav"),
+    );
+    expect(fs.readFileSync(manifest.audio_files.mixed!, "utf8")).toBe(
+      "synthetic audio",
+    );
+    expect(fs.statSync(manifest.audio_files.mixed!).mode & 0o077).toBe(0);
+    expect(listSessions(out)).toEqual([session.dir]);
+  });
+  it("persists consent and retained audio when transcription fails", async () => {
+    const { out, audio, env } = fixture();
+    await expect(
+      createFileSession({
+        title: "Failure",
+        audioFile: audio,
+        env,
+        provider: "deepgram",
+      }),
+    ).rejects.toThrow(/not implemented/);
+    const sessions = listSessions(out);
+    expect(sessions).toHaveLength(1);
+    const manifest = readManifest(sessions[0]!);
+    expect(manifest.status).toBe("failed");
+    expect(manifest.ended_at).not.toBe("");
+    expect(
+      manifest.consent_events.some((e) => e.type === "recording-announced"),
+    ).toBe(true);
+    expect(fs.readFileSync(manifest.audio_files.mixed!, "utf8")).toBe(
+      "synthetic audio",
+    );
+    expect(fs.existsSync(path.join(sessions[0]!, "transcript.jsonl"))).toBe(
+      false,
+    );
+  });
+  it("fails visibly on copy errors instead of transcribing a partial destination", async () => {
+    const { out, audio, env } = fixture();
+    vi.spyOn(fs, "copyFileSync").mockImplementation((_source, destination) => {
+      fs.writeFileSync(destination, "partial");
+      throw new Error("synthetic disk full");
+    });
+    await expect(
+      createFileSession({ title: "Copy failure", audioFile: audio, env }),
+    ).rejects.toThrow(/synthetic disk full/);
+    const sessions = listSessions(out);
+    expect(sessions).toHaveLength(1);
+    const manifest = readManifest(sessions[0]!);
+    expect(manifest.status).toBe("failed");
+    expect(manifest.audio_files.mixed).toBeUndefined();
+    expect(fs.existsSync(path.join(sessions[0]!, "transcript.jsonl"))).toBe(
+      false,
+    );
+    expect(fs.readFileSync(audio, "utf8")).toBe("synthetic audio");
+  });
+  it("retains audio and marks a partial export failed", async () => {
+    const { out, audio, env } = fixture();
+    const rename = fs.renameSync.bind(fs);
+    vi.spyOn(fs, "renameSync").mockImplementation((source, destination) => {
+      if (String(destination).endsWith("transcript.md"))
+        throw new Error("synthetic export failure");
+      rename(source, destination);
+    });
+    await expect(
+      createFileSession({ title: "Export failure", audioFile: audio, env }),
+    ).rejects.toThrow(/synthetic export failure/);
+    const [dir] = listSessions(out);
+    const manifest = readManifest(dir!);
+    expect(manifest.status).toBe("failed");
+    expect(fs.readFileSync(manifest.audio_files.mixed!, "utf8")).toBe(
+      "synthetic audio",
+    );
+    expect(fs.existsSync(path.join(dir!, "transcript.jsonl"))).toBe(true);
+    expect(fs.existsSync(path.join(dir!, "transcript.md"))).toBe(false);
+    expect(manifest.warnings.join(" ")).toContain("synthetic export failure");
+  });
+  it("retains a discoverable mock session when its configured provider fails", async () => {
+    const { out, env } = fixture();
+    await expect(
+      createMockSession({
+        title: "Mock failure",
+        env: { ...env, RESOUND_TRANSCRIBER: "deepgram" },
+      }),
+    ).rejects.toThrow(/not implemented/);
+    const [dir] = listSessions(out);
+    expect(dir).toBeDefined();
+    expect(readManifest(dir!).status).toBe("failed");
+  });
+  it("rejects directories before reserving a session", async () => {
+    const { out, env } = fixture();
+    await expect(
+      createFileSession({ title: "Directory", audioFile: out, env }),
+    ).rejects.toThrow(/regular file/);
+    expect(listSessions(out)).toEqual([]);
+  });
 });
