@@ -1,3 +1,5 @@
+Third audit after PR #14: [2026-10-12 transcript boundaries](repository-hardening-2026-10-12-boundaries.md).
+
 Repeat audit after PR #13: [2026-10-12 repeat pass](repository-hardening-2026-10-12-repeat.md).
 
 # Repository hardening audit — 2026-09-26

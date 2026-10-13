@@ -1,0 +1,5 @@
+
+> resound@1.0.1 test:cli /Users/robertdevore/2026/resound
+> node scripts/verify-cli.mjs
+
+CLI smoke passed: 17 commands; 2600000 stdout bytes preserved.

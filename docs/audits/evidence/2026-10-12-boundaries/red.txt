@@ -1,0 +1,433 @@
+
+ RUN  v4.1.11 /Users/robertdevore/2026/resound
+
+ ❯ packages/transcribers/src/provider-validation.test.ts (21 tests | 18 failed) 40ms
+     × rejects an unrecognized response {} 13ms
+     × rejects an unrecognized response null 3ms
+     × rejects an unrecognized response undefined 1ms
+     × rejects an unrecognized response {"error":"synthetic failure"} 1ms
+     × rejects malformed rows null 1ms
+     × rejects malformed rows {} 1ms
+     × rejects malformed rows null 1ms
+     × rejects malformed rows {"text":42} 1ms
+     × rejects supplied nonnumeric offsets instead of coercing them 1ms
+     × rejects an unrecognized response {} 1ms
+     × rejects an unrecognized response null 2ms
+     × rejects an unrecognized response undefined 1ms
+     × rejects an unrecognized response {"error":"synthetic failure"} 1ms
+     × rejects malformed rows null 1ms
+     × rejects malformed rows {} 1ms
+     × rejects malformed rows null 1ms
+     × rejects malformed rows {"text":42} 1ms
+     × rejects supplied nonnumeric offsets instead of coercing them 1ms
+ ❯ packages/core/src/core.test.ts (31 tests | 5 failed) 215ms
+   × rejects invalid canonical start timestamps nonsense 48ms
+   × rejects invalid canonical start timestamps 00:60:00 2ms
+   × rejects invalid canonical start timestamps  3ms
+   × rejects invalid canonical start timestamps 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999:00:00 2ms
+   × validates nonempty end timestamps while preserving legacy unknown ends 5ms
+ ❯ packages/transcribers/src/http.test.ts (8 tests | 3 failed) 710ms
+   × rejects malformed successful HTTP payloads {"error":"synthetic provider error"} 40ms
+   × rejects malformed successful HTTP payloads {"segments":[{"start":"2","end":3,"text":"hello"}]} 18ms
+   × rejects malformed successful HTTP payloads {"segments":[{"start":0,"end":1,"text":"hello","avg_logprob":"bad"}]} 22ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 26 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/core/src/core.test.ts > rejects invalid canonical start timestamps nonsense
+AssertionError: expected [ { ts: 'nonsense', …(5) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "confidence": 1,
++     "end_ts": "00:01:00",
++     "speaker": "A",
++     "text": "hello",
++     "ts": "nonsense",
++     "user_id": "1",
++   },
++ ]
+
+ ❯ packages/core/src/core.test.ts:361:27
+    359| it.each(["nonsense", "00:60:00", "", `${"9".repeat(400)}:00:00`])("rej…
+    360|   const result = parseJsonl(JSON.stringify({ ts, end_ts: "00:01:00", s…
+    361|   expect(result.segments).toEqual([]);
+       |                           ^
+    362|   expect(result.errors.join(" ")).toMatch(/Line 1: invalid timestamp.*…
+    363| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/26]⎯
+
+ FAIL  packages/core/src/core.test.ts > rejects invalid canonical start timestamps 00:60:00
+AssertionError: expected [ { ts: '00:60:00', …(5) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "confidence": 1,
++     "end_ts": "00:01:00",
++     "speaker": "A",
++     "text": "hello",
++     "ts": "00:60:00",
++     "user_id": "1",
++   },
++ ]
+
+ ❯ packages/core/src/core.test.ts:361:27
+    359| it.each(["nonsense", "00:60:00", "", `${"9".repeat(400)}:00:00`])("rej…
+    360|   const result = parseJsonl(JSON.stringify({ ts, end_ts: "00:01:00", s…
+    361|   expect(result.segments).toEqual([]);
+       |                           ^
+    362|   expect(result.errors.join(" ")).toMatch(/Line 1: invalid timestamp.*…
+    363| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/26]⎯
+
+ FAIL  packages/core/src/core.test.ts > rejects invalid canonical start timestamps 
+AssertionError: expected [ Array(1) ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "confidence": 1,
++     "end_ts": "00:01:00",
++     "speaker": "A",
++     "text": "hello",
++     "ts": "",
++     "user_id": "1",
++   },
++ ]
+
+ ❯ packages/core/src/core.test.ts:361:27
+    359| it.each(["nonsense", "00:60:00", "", `${"9".repeat(400)}:00:00`])("rej…
+    360|   const result = parseJsonl(JSON.stringify({ ts, end_ts: "00:01:00", s…
+    361|   expect(result.segments).toEqual([]);
+       |                           ^
+    362|   expect(result.errors.join(" ")).toMatch(/Line 1: invalid timestamp.*…
+    363| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/26]⎯
+
+ FAIL  packages/core/src/core.test.ts > rejects invalid canonical start timestamps 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999:00:00
+AssertionError: expected [ { …(6) } ] to deeply equal []
+
+- Expected
++ Received
+
+- []
++ [
++   {
++     "confidence": 1,
++     "end_ts": "00:01:00",
++     "speaker": "A",
++     "text": "hello",
++     "ts": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999:00:00",
++     "user_id": "1",
++   },
++ ]
+
+ ❯ packages/core/src/core.test.ts:361:27
+    359| it.each(["nonsense", "00:60:00", "", `${"9".repeat(400)}:00:00`])("rej…
+    360|   const result = parseJsonl(JSON.stringify({ ts, end_ts: "00:01:00", s…
+    361|   expect(result.segments).toEqual([]);
+       |                           ^
+    362|   expect(result.errors.join(" ")).toMatch(/Line 1: invalid timestamp.*…
+    363| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/26]⎯
+
+ FAIL  packages/core/src/core.test.ts > validates nonempty end timestamps while preserving legacy unknown ends
+AssertionError: expected '' to match /end_ts/
+
+- Expected:
+/end_ts/
+
++ Received:
+""
+
+ ❯ packages/core/src/core.test.ts:367:86
+    365|   const segment = { ts: "00:01.500", end_ts: "", speaker: "A", user_id…
+    366|   expect(parseJsonl(JSON.stringify(segment)).errors).toEqual([]);
+    367|   expect(parseJsonl(JSON.stringify({ ...segment, end_ts: "bad" })).err…
+       |                                                                                      ^
+    368| });
+    369|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/26]⎯
+
+ FAIL  packages/transcribers/src/http.test.ts > rejects malformed successful HTTP payloads {"error":"synthetic provider error"}
+AssertionError: promise resolved "[]" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+[]
+
+ ❯ packages/transcribers/src/http.test.ts:104:114
+    102| ])("rejects malformed successful HTTP payloads %j", async (body) => {
+    103|   const input = await setup((_req, res) => res.end(JSON.stringify(body…
+    104|   await expect(new OpenAICompatibleTranscriber({ apiKey: "synthetic", …
+       |                                                                                                                  ^
+    105| });
+    106|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/26]⎯
+
+ FAIL  packages/transcribers/src/http.test.ts > rejects malformed successful HTTP payloads {"segments":[{"start":"2","end":3,"text":"hello"}]}
+AssertionError: promise resolved "[ { ts: '00:00:00', …(5) } ]" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+[
+  {
+    "confidence": 0,
+    "end_ts": "00:00:03",
+    "speaker": "Speaker",
+    "text": "hello",
+    "ts": "00:00:00",
+    "user_id": "",
+  },
+]
+
+ ❯ packages/transcribers/src/http.test.ts:104:114
+    102| ])("rejects malformed successful HTTP payloads %j", async (body) => {
+    103|   const input = await setup((_req, res) => res.end(JSON.stringify(body…
+    104|   await expect(new OpenAICompatibleTranscriber({ apiKey: "synthetic", …
+       |                                                                                                                  ^
+    105| });
+    106|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/26]⎯
+
+ FAIL  packages/transcribers/src/http.test.ts > rejects malformed successful HTTP payloads {"segments":[{"start":0,"end":1,"text":"hello","avg_logprob":"bad"}]}
+AssertionError: promise resolved "[ { ts: '00:00:00', …(5) } ]" instead of rejecting
+
+- Expected:
+Error {
+  "message": "rejected promise",
+}
+
++ Received:
+[
+  {
+    "confidence": NaN,
+    "end_ts": "00:00:01",
+    "speaker": "Speaker",
+    "text": "hello",
+    "ts": "00:00:00",
+    "user_id": "",
+  },
+]
+
+ ❯ packages/transcribers/src/http.test.ts:104:114
+    102| ])("rejects malformed successful HTTP payloads %j", async (body) => {
+    103|   const input = await setup((_req, res) => res.end(JSON.stringify(body…
+    104|   await expect(new OpenAICompatibleTranscriber({ apiKey: "synthetic", …
+       |                                                                                                                  ^
+    105| });
+    106|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects an unrecognized response {}
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects an unrecognized response undefined
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects an unrecognized response {"error":"synthetic failure"}
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects an unrecognized response {}
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects an unrecognized response undefined
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects an unrecognized response {"error":"synthetic failure"}
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:10:49
+      8|   describe(`${dialect} provider validation`, () => {
+      9|     it.each([{}, null, [], { error: "synthetic failure" }])("rejects a…
+     10|       expect(() => parse(JSON.stringify(body))).toThrow(/Invalid trans…
+       |                                                 ^
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects an unrecognized response null
+AssertionError: expected [Function] to throw error matching /Invalid transcription response/ but got 'Cannot read properties of null (readi…'
+
+- Expected:
+/Invalid transcription response/
+
++ Received:
+"Cannot read properties of null (reading 'segments')"
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:10:49
+      8|   describe(`${dialect} provider validation`, () => {
+      9|     it.each([{}, null, [], { error: "synthetic failure" }])("rejects a…
+     10|       expect(() => parse(JSON.stringify(body))).toThrow(/Invalid trans…
+       |                                                 ^
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects malformed rows null
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects malformed rows null
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:13:62
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+     13|       expect(() => parse(JSON.stringify({ [field]: rows }))).toThrow(/…
+       |                                                              ^
+     14|     });
+     15|     it("rejects supplied nonnumeric offsets instead of coercing them",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects malformed rows {}
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects malformed rows {}
+AssertionError: expected [Function] to throw error matching /Invalid transcription response/ but got 'rows.map is not a function'
+
+- Expected:
+/Invalid transcription response/
+
++ Received:
+"rows.map is not a function"
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:13:62
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+     13|       expect(() => parse(JSON.stringify({ [field]: rows }))).toThrow(/…
+       |                                                              ^
+     14|     });
+     15|     it("rejects supplied nonnumeric offsets instead of coercing them",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects malformed rows null
+AssertionError: expected [Function] to throw error matching /Invalid transcription response/ but got 'Cannot read properties of null (readi…'
+
+- Expected:
+/Invalid transcription response/
+
++ Received:
+"Cannot read properties of null (reading 'start')"
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:13:62
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+     13|       expect(() => parse(JSON.stringify({ [field]: rows }))).toThrow(/…
+       |                                                              ^
+     14|     });
+     15|     it("rejects supplied nonnumeric offsets instead of coercing them",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects malformed rows {"text":42}
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects malformed rows {"text":42}
+AssertionError: expected [Function] to throw error matching /Invalid transcription response/ but got '(r.text ?? "").trim is not a function'
+
+- Expected:
+/Invalid transcription response/
+
++ Received:
+"(r.text ?? \"\").trim is not a function"
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:13:62
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+     13|       expect(() => parse(JSON.stringify({ [field]: rows }))).toThrow(/…
+       |                                                              ^
+     14|     });
+     15|     it("rejects supplied nonnumeric offsets instead of coercing them",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > openai provider validation > rejects supplied nonnumeric offsets instead of coercing them
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects supplied nonnumeric offsets instead of coercing them
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:17:63
+     15|     it("rejects supplied nonnumeric offsets instead of coercing them",…
+     16|       const row = dialect === "openai" ? { start: "2", end: 3, text: "…
+     17|       expect(() => parse(JSON.stringify({ [field]: [row] }))).toThrow(…
+       |                                                               ^
+     18|     });
+     19|     it("accepts explicit silence and omitted optional offsets", () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects an unrecognized response null
+AssertionError: expected [Function] to throw error matching /Invalid transcription response/ but got 'Cannot read properties of null (readi…'
+
+- Expected:
+/Invalid transcription response/
+
++ Received:
+"Cannot read properties of null (reading 'transcription')"
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:10:49
+      8|   describe(`${dialect} provider validation`, () => {
+      9|     it.each([{}, null, [], { error: "synthetic failure" }])("rejects a…
+     10|       expect(() => parse(JSON.stringify(body))).toThrow(/Invalid trans…
+       |                                                 ^
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/26]⎯
+
+ FAIL  packages/transcribers/src/provider-validation.test.ts > whisper.cpp provider validation > rejects malformed rows null
+AssertionError: expected [Function] to throw error matching /Invalid transcription response/ but got 'Cannot read properties of null (readi…'
+
+- Expected:
+/Invalid transcription response/
+
++ Received:
+"Cannot read properties of null (reading 'offsets')"
+
+ ❯ packages/transcribers/src/provider-validation.test.ts:13:62
+     11|     });
+     12|     it.each([null, {}, [null], [{ text: 42 }]])("rejects malformed row…
+     13|       expect(() => parse(JSON.stringify({ [field]: rows }))).toThrow(/…
+       |                                                              ^
+     14|     });
+     15|     it("rejects supplied nonnumeric offsets instead of coercing them",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/26]⎯
+
+
+ Test Files  3 failed (3)
+      Tests  26 failed | 34 passed (60)
+   Start at  23:15:02
+   Duration  2.19s (transform 685ms, setup 0ms, import 1.39s, tests 965ms, environment 1ms)
+
