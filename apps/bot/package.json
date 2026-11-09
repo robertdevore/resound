@@ -17,6 +17,6 @@
     "@resound/exporters": "workspace:*",
     "@resound/sinks": "workspace:*",
     "@resound/transcribers": "workspace:*",
-    "discord.js": "^14.27.0"
+    "discord.js": "^14.28.1"
   }
 }
